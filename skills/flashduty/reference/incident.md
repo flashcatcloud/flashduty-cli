@@ -339,10 +339,10 @@ Get ServiceDeskPlus linked incidents
 - `--page` int64 — Not supported; pagination uses only 'search_after_ctx', so this value is ignored. (min 0)
 - `--request-id` string — ServiceDeskPlus request ID. (≤64 chars)
 - `--search-after-ctx` string — Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.
-- `--since` string
+- `--since` string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
 - `--start-time` string — Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string — Filter by sync status: 'success' or 'failed'. · enum: success | failed
-- `--until` string
+- `--until` string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: channel_id (integer); channel_name (string); created_at (string); error_message (string); incident_id (string); incident_title (string); integration_id (integer); request_id (string); request_link (string); status (string)
 
 ### similar <id>

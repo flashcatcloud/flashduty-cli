@@ -18,14 +18,13 @@ func genChangesListCmd() *cobra.Command {
 	var fDataSourceID int64
 	var fDataSourceIDs []int
 	var fEndTime string
-	var fUntil string
 	var fIncludeEvents bool
 	var fIntegrationID int64
 	var fIntegrationIDs []int
 	var fOrderby string
 	var fQuery string
 	var fStartTime string
-	var fSince string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List changes",
@@ -50,6 +49,8 @@ Request fields:
   --orderby string — Sort field: 'start_time' or 'last_time'. Defaults to 'start_time'. [start_time, last_time]
   --query string — Case-insensitive substring or regular-expression match over the change title, change_key, and description. An invalid regular expression falls back to a literal match.
   --start-time string (required) — Start of the query window, Unix seconds. Required in practice: it must be less than 'end_time', and the window can span at most 31 days. A change matches when its [start_time, last_time] range overlaps the window. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --since string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+  --until string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
   filters (array<object>, via --data) — Structured filters ANDed onto the query (e.g. on labels). Keys prefixed with 'incident' are ignored. Supported keys are 'labels.<name>', 'title', 'description', 'change_key', 'change_status' and 'link'; keys are not validated, so any other key matches nothing under 'IN' and everything under 'NOTIN'. 'oper' is case-insensitive and a condition with empty 'vals' is dropped.
     - key (string) (required) — Field to match. Which built-in keys are allowed depends on the rule type and is listed on the field that holds the conditions; any 'labels.<name>' key (for example 'labels.env') is always accepted. An unknown key returns 'InvalidParameter'. When the alert or incident has no value for the key, 'IN' does not match and 'NOTIN' matches.
     - oper (string) (required) — Match operator, case-sensitive. 'IN': matches when the field value matches any entry in 'vals'. 'NOTIN': matches when it matches none of them. [IN, NOTIN]
@@ -94,15 +95,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty change list --data '{"asc":false,"end_time":1717046400,"include_events":false,"integration_ids":[362],"limit":10,"orderby":"start_time","p":1,"start_time":1716960000}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
 				if err != nil {
 					return err
 				}
-				genNoteWindow(cmd, vStartTime, vEndTime, okStartTime && okEndTime)
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
@@ -151,6 +151,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_time", End: "end_time", Millis: false, Where: "--data or --start-time/--end-time"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.ListChangeRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -170,15 +173,15 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs.")
 	cmd.Flags().Int64Var(&fDataSourceID, "data-source-id", 0, "Deprecated: use 'integration_ids' instead. Single integration ID to filter by. (min 1)")
 	cmd.Flags().IntSliceVar(&fDataSourceIDs, "data-source-ids", nil, "Deprecated: use 'integration_ids' instead. At least 1 entry when provided.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the query window, Unix seconds. Required in practice; see 'start_time'. (required) (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
-	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the query window, Unix seconds. Required in practice; see 'start_time'. (required) (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fIncludeEvents, "include-events", false, "Include the underlying change events for each change when true.")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Deprecated: use 'integration_ids' instead. Single integration ID to filter by. (min 1)")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by reporting integration IDs. At least 1 entry when provided.")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field: 'start_time' or 'last_time'. Defaults to 'start_time'. [start_time, last_time]")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Case-insensitive substring or regular-expression match over the change title, change_key, and description. An invalid regular expression falls back to a literal match.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the query window, Unix seconds. Required in practice: it must be less than 'end_time', and the window can span at most 31 days. A change matches when its [start_time, last_time] range overlaps the window. (required) (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
-	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the query window, Unix seconds. Required in practice: it must be less than 'end_time', and the window can span at most 31 days. A change matches when its [start_time, last_time] range overlaps the window. (required) (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

@@ -97,6 +97,7 @@ func genDiagnosticsQueryExploreCmd() *cobra.Command {
 	var dataJSON string
 	var fDatasourceID int64
 	var fExpr string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "query-explore <datasource-id>",
 		Short: "Run Explore query",
@@ -109,6 +110,8 @@ API: POST /monit/query/explore (monit-read-query-explore)
 Request fields:
   --datasource-id int (required) — Data source ID from '/monit/datasource/list'. Must be a positive JavaScript-safe integer for an enabled data source of the authenticated account that the caller may query. (1-9007199254740991)
   --expr string (required) — Query expression in the data source's native language (PromQL, LogsQL, SQL, and so on). Non-empty UTF-8 of at most 64 KiB; 'mysql' allows at most 16 KiB and 'tencent_cls' at most 12 KiB. (≥1 chars)
+  --since string — Window start, written to execution.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+  --until string — Window end, written to execution.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
   args (object, via --data) (required) — Macro substitutions keyed by variable name, used for Grafana-style variables. Keys are at most 256 bytes, values at most 64 KiB, with a 128 KiB total budget.
   execution (object, via --data) (required) — Time semantics of the query. The accepted companion fields depend on 'kind': 'instant' takes 'to_ms' (and optionally 'from_ms'), 'range' requires 'from_ms', 'to_ms', and 'max_data_points', and 'window' takes only 'from_ms' and 'to_ms'. When both times are present, 'from_ms' must be less than 'to_ms'. 'step_seconds' is never accepted over HTTP.
     - from_ms (integer) — Start of the interval as a Unix timestamp in milliseconds; non-negative and less than 'to_ms'. Required for 'range' and 'window'; optional for 'instant'. (min 0)
@@ -159,6 +162,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "execution", Start: "from_ms", End: "to_ms", Millis: true, Where: "--data"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.QueryExploreRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -173,6 +179,8 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	}
 	cmd.Flags().Int64Var(&fDatasourceID, "datasource-id", 0, "Data source ID from '/monit/datasource/list'. Must be a positive JavaScript-safe integer for an enabled data source of the authenticated account that the caller may query. (required) (1-9007199254740991)")
 	cmd.Flags().StringVar(&fExpr, "expr", "", "Query expression in the data source's native language (PromQL, LogsQL, SQL, and so on). Non-empty UTF-8 of at most 64 KiB; 'mysql' allows at most 16 KiB and 'tencent_cls' at most 12 KiB. (required) (≥1 chars)")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to execution.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to execution.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

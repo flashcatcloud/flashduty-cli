@@ -28,6 +28,8 @@ Query structured data
 Run Explore query
 - `<datasource-id>` (positional, required) int64 — Data source ID from '/monit/datasource/list'. Must be a positive JavaScript-safe integer for an enabled data source of the authenticated account that the caller may query. (1-9007199254740991)
 - `--expr` string (required) — Query expression in the data source's native language (PromQL, LogsQL, SQL, and so on). Non-empty UTF-8 of at most 64 KiB; 'mysql' allows at most 16 KiB and 'tencent_cls' at most 12 KiB. (≥1 chars)
+- `--since` string — Window start, written to execution.from_ms (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data also sets is an error.
+- `--until` string — Window end, written to execution.to_ms (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): args (object) (required); execution (object) (required)
 - response: single object (`data` unwrapped to the top level) — fields: execution (object); format (string); result (object)
 

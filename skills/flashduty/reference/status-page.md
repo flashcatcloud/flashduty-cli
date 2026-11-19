@@ -88,9 +88,11 @@ Get status page event detail
 List status page events
 - `--end-at-seconds` string — Upper bound of the event activity window: only events started at or before this Unix timestamp (seconds) are returned. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `<page-id>` (positional, required) int64 — Status page ID.
+- `--since` string — Window start, written to start_at_seconds (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-at-seconds/--end-at-seconds also sets is an error.
 - `--start-at-seconds` string — Lower bound of the event activity window: only events still open at, or closed at or after, this Unix timestamp (seconds) are returned. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` string (required) — Event status filter. Required. Must be a status valid for the given 'type' ('investigating'/'identified'/'monitoring'/'resolved' for 'incident'; 'scheduled'/'ongoing'/'completed' for 'maintenance'). · enum: investigating | identified | monitoring | resolved | scheduled | ongoing | completed
 - `--type` string (required) — Event type filter. Required. · enum: incident | maintenance
+- `--until` string — Window end, written to end_at_seconds (Unix seconds); same forms as --since, plus '+2h' for the future.
 - response: same shape as `change-active-list <page-id>` above
 
 ### change-timeline-create

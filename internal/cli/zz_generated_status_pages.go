@@ -448,6 +448,7 @@ func genStatusPagesChangeListCmd() *cobra.Command {
 	var fEndAtSeconds string
 	var fType string
 	var fStatus string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "change-list <page-id>",
 		Short: "List status page events",
@@ -463,6 +464,8 @@ Request fields:
   --end-at-seconds string — Upper bound of the event activity window: only events started at or before this Unix timestamp (seconds) are returned. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --type string (required) — Event type filter. Required. [incident, maintenance]
   --status string (required) — Event status filter. Required. Must be a status valid for the given 'type' ('investigating'/'identified'/'monitoring'/'resolved' for 'incident'; 'scheduled'/'ongoing'/'completed' for 'maintenance'). [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]
+  --since string — Window start, written to start_at_seconds (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-at-seconds/--end-at-seconds also sets is an error.
+  --until string — Window end, written to end_at_seconds (Unix seconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - items (array<object>) (required) — Status page changes (incidents/maintenances) matching the filters.
@@ -534,6 +537,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_at_seconds", End: "end_at_seconds", Millis: false, Where: "--data or --start-at-seconds/--end-at-seconds"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.StatusPagesChangeListRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -551,6 +557,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fEndAtSeconds, "end-at-seconds", "", "Upper bound of the event activity window: only events started at or before this Unix timestamp (seconds) are returned. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fType, "type", "", "Event type filter. Required. (required) [incident, maintenance]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Event status filter. Required. Must be a status valid for the given 'type' ('investigating'/'identified'/'monitoring'/'resolved' for 'incident'; 'scheduled'/'ongoing'/'completed' for 'maintenance'). (required) [investigating, identified, monitoring, resolved, scheduled, ongoing, completed]")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_at_seconds (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-at-seconds/--end-at-seconds also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_at_seconds (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

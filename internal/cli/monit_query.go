@@ -7,13 +7,11 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
-	"github.com/flashcatcloud/flashduty-cli/internal/timeutil"
 )
 
 // newMonitQueryCmd builds the curated leaf for the unified datasource tool
@@ -143,18 +141,10 @@ func resolveToolParams(flag string) (json.RawMessage, error) {
 }
 
 // applyToolWindow writes --since/--until into params.execution as from_ms /
-// to_ms. --since alone ends the window now unless the params already carry
-// to_ms. A flag whose field the params already set is a conflict, and an
-// inverted window is rejected before sending. Re-encoding keeps integers
-// exact (UseNumber) and leaves '<', '>' and '&' in query text unescaped;
-// execution.kind is never invented.
+// to_ms (see applyRange). Re-encoding keeps integers exact (UseNumber) and
+// leaves '<', '>' and '&' in query text unescaped; execution.kind is never
+// invented.
 func applyToolWindow(params json.RawMessage, since, until string, setSince, setUntil bool) (json.RawMessage, error) {
-	if setSince && strings.TrimSpace(since) == "" {
-		return nil, fmt.Errorf("invalid --since: empty value")
-	}
-	if setUntil && strings.TrimSpace(until) == "" {
-		return nil, fmt.Errorf("invalid --until: empty value")
-	}
 	obj := map[string]any{}
 	if len(params) > 0 {
 		dec := json.NewDecoder(bytes.NewReader(params))
@@ -163,41 +153,9 @@ func applyToolWindow(params json.RawMessage, since, until string, setSince, setU
 			return nil, fmt.Errorf("--params must be a JSON object to apply --since/--until")
 		}
 	}
-	execution := map[string]any{}
-	if v, present := obj["execution"]; present {
-		m, ok := v.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("--params execution must be an object to apply --since/--until")
-		}
-		execution = m
+	if err := applyRange(obj, toolRange, since, until, setSince, setUntil); err != nil {
+		return nil, err
 	}
-	if _, present := execution["from_ms"]; setSince && present {
-		return nil, fmt.Errorf("--since conflicts with execution.from_ms in --params: set the window start in one place")
-	}
-	if _, present := execution["to_ms"]; setUntil && present {
-		return nil, fmt.Errorf("--until conflicts with execution.to_ms in --params: set the window end in one place")
-	}
-	if _, present := execution["to_ms"]; setUntil || !present {
-		end, err := timeutil.Parse(until)
-		if err != nil {
-			return nil, fmt.Errorf("invalid --until: %w", err)
-		}
-		execution["to_ms"] = end * 1000
-	}
-	if setSince {
-		start, err := timeutil.Parse(since)
-		if err != nil {
-			return nil, fmt.Errorf("invalid --since: %w", err)
-		}
-		execution["from_ms"] = start * 1000
-	}
-	from, okFrom := windowMS(execution["from_ms"])
-	to, okTo := windowMS(execution["to_ms"])
-	if okFrom && okTo && from >= to {
-		return nil, fmt.Errorf("inverted window: start %s is not before end %s (check --since/--until and execution in --params)",
-			formatLocal(time.UnixMilli(from)), formatLocal(time.UnixMilli(to)))
-	}
-	obj["execution"] = execution
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
@@ -205,17 +163,4 @@ func applyToolWindow(params json.RawMessage, since, until string, setSince, setU
 		return nil, err
 	}
 	return json.RawMessage(bytes.TrimRight(buf.Bytes(), "\n")), nil
-}
-
-// windowMS reads an execution millisecond field written by this command
-// (int64) or carried in the params (json.Number).
-func windowMS(v any) (int64, bool) {
-	switch n := v.(type) {
-	case int64:
-		return n, true
-	case json.Number:
-		i, err := n.Int64()
-		return i, err == nil
-	}
-	return 0, false
 }

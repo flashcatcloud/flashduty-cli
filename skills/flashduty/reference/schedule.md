@@ -126,7 +126,9 @@ Delete schedules
 Get schedule info
 - `--end` string (required) — Preview end timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `<schedule-id>` (positional, required) int64 — Schedule ID; obtain it from 'POST /schedule/list'.
+- `--since` string — Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.
 - `--start` string (required) — Preview start timestamp (Unix seconds, 10 digits). Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--until` string — Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.
 - response: single object (`data` unwrapped to the top level) — fields: account_id (integer); create_at (string); create_by (integer); cur_oncall (any); description (string); disabled (integer); end (string); final_schedule (object); group_id (integer); id (integer); layer_schedules (array<object>); layers (array<object>); name (string); next_oncall (any); notify (any); schedule_id (integer); schedule_layers (array<object>); schedule_name (string); start (string); status (integer); team_id (integer); time_zone (string); update_at (string); update_by (integer)
 
 ### infos <schedule-id> [<id2>...]
@@ -143,8 +145,10 @@ List schedules
 - `--page` int64 — Page number (1-indexed).
 - `--query` string — Substring matched against the schedule name or description.
 - `--search-after-ctx` string
+- `--since` string — Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.
 - `--start` string — Window start, 10-digit Unix seconds. Send together with 'end' to compute layers and shifts. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--team-ids` intSlice — Only schedules owned by these teams. With 'is_my_team' or 'is_my_manage', only the teams the caller belongs to are kept.
+- `--until` string — Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.
 - response: `{items: [...], total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); create_at (string); create_by (integer); cur_oncall (any); description (string); disabled (integer); end (string); final_schedule (object); group_id (integer); id (integer); layer_schedules (array<object>); layers (array<object>); name (string); next_oncall (any); notify (any); schedule_id (integer); schedule_layers (array<object>); schedule_name (string); start (string); status (integer); team_id (integer); time_zone (string); update_at (string); update_by (integer)
 
 ### preview
@@ -155,17 +159,21 @@ Preview schedule
 - `--name` string — Legacy name field, used on create only when 'schedule_name' is empty. Ignored on update. (≤40 chars)
 - `--schedule-id` int64 — Schedule ID, required on update; obtain it from 'POST /schedule/list'.
 - `--schedule-name` string — Schedule name, at most 40 characters, unique within the account. On update, omitting it keeps the current name. (≤40 chars)
+- `--since` string — Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.
 - `--start` string — Preview window start, 10-digit Unix seconds. Required for '/schedule/preview'; ignored by create and update. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
 - `--status` int64 — '0' = enabled, '1' = disabled. On update, omitting it keeps the current state. On create it takes precedence over 'disabled'.
 - `--team-id` int64 — ID of the owning team; obtain it from 'POST /team/list'. On create, omitting it leaves the schedule without a team ('0'); on update, omitting it keeps the current team.
 - `--time-zone` string — IANA time zone in which the schedule's wall-clock rules are evaluated, for example 'Asia/Shanghai' or 'UTC'; abbreviations such as 'EST' and 'Etc/GMT±N' are rejected. Set on create (default: evaluated in 'Asia/Shanghai'); immutable afterwards — on update send nothing or the current value. On preview it sets the evaluation time zone.
+- `--until` string — Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.
 - body-only (`--data`): layers (array<object>); notify (any)
 - response: same shape as `info <schedule-id>` above
 
 ### self
 List my schedules
 - `--end` string (required) — Window end (Unix seconds, 10 digits). Required. Must be within 45 days of start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--since` string — Window start, written to start (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start/--end also sets is an error.
 - `--start` string (required) — Window start (Unix seconds, 10 digits). Required. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+- `--until` string — Window end, written to end (Unix seconds); same forms as --since, plus '+2h' for the future.
 - response: same shape as `infos <schedule-id> [<id2>...]` above
 
 ### update

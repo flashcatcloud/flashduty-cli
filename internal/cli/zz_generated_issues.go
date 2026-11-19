@@ -28,6 +28,7 @@ func genIssuesReadExportCmd() *cobra.Command {
 	var fSuspectedCauses []string
 	var fTeamIDs []int
 	var fTimeZone string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "issue-export",
 		Short: "Export issues as CSV",
@@ -56,6 +57,8 @@ Request fields:
   --suspected-causes []string — Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
   --team-ids []int — Filter by team IDs. Get team IDs via 'POST /team/list'.
   --time-zone string — IANA time zone used to render the CSV time columns and the file name, e.g. 'Asia/Shanghai' or 'UTC'. Default: 'Asia/Shanghai'. An unknown zone name returns 'InvalidParameter'.
+  --since string — Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+  --until string — Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 `,
 		Example: `  flashduty rum issue-export --data '{"application_ids":["eWbr4xk3ZRnLabRa6unqwD"],"console_origin":"https://console.flashcat.cloud","end_time":1775961914595,"export_fields":["issue_id","error_type","error_message","status","error_count","session_count","last_seen_at"],"orderby":"updated_at","start_time":1772611200000,"statuses":["for_review"],"time_zone":"Asia/Shanghai"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -120,6 +123,9 @@ Request fields:
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_time", End: "end_time", Millis: true, Where: "--data or --start-time/--end-time"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.RUMIssueExportRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -150,6 +156,8 @@ Request fields:
 	cmd.Flags().StringSliceVar(&fSuspectedCauses, "suspected-causes", nil, "Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. Get team IDs via 'POST /team/list'.")
 	cmd.Flags().StringVar(&fTimeZone, "time-zone", "", "IANA time zone used to render the CSV time columns and the file name, e.g. 'Asia/Shanghai' or 'UTC'. Default: 'Asia/Shanghai'. An unknown zone name returns 'InvalidParameter'.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -256,6 +264,7 @@ func genIssuesReadListCmd() *cobra.Command {
 	var fStatuses []string
 	var fSuspectedCauses []string
 	var fTeamIDs []int
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "issue-list",
 		Short: "List issues",
@@ -281,6 +290,8 @@ Request fields:
   --statuses []string — Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | [for_review, reviewed, ignored, resolved]
   --suspected-causes []string — Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]
   --team-ids []int — Filter by team IDs. Get team IDs via 'POST /team/list'.
+  --since string — Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+  --until string — Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — Whether more pages exist; 'true' when matching records remain beyond the current page.
@@ -376,6 +387,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_time", End: "end_time", Millis: true, Where: "--data or --start-time/--end-time"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.RUMIssueListRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -403,6 +417,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringSliceVar(&fStatuses, "statuses", nil, "Filter by triage status; any other value is rejected with a parameter error. | Value | Meaning | |---|---| | 'for_review' | Pending triage | | 'reviewed' | Reviewed | | 'ignored' | Ignored | | 'resolved' | Resolved | [for_review, reviewed, ignored, resolved]")
 	cmd.Flags().StringSliceVar(&fSuspectedCauses, "suspected-causes", nil, "Filter by suspected cause category. | Value | Meaning | |---|---| | 'api.failed_request' | API request failure (e.g. HTTP 4xx/5xx responses) | | 'network.error' | Network connectivity error (offline, aborted requests, etc.) | | 'code.exception' | Code exception (Syntax/Reference/Range and similar runtime errors) | | 'code.invalid_object_access' | Invalid object access (e.g. reading a property of 'undefined'/'null') | | 'code.invalid_argument' | Invalid argument passed to a function | | 'unknown' | Cause could not be determined | [api.failed_request, network.error, code.exception, code.invalid_object_access, code.invalid_argument, unknown]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Filter by team IDs. Get team IDs via 'POST /team/list'.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_time (Unix milliseconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_time (Unix milliseconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

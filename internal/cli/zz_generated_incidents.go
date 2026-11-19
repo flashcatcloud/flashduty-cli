@@ -152,13 +152,12 @@ func genIncidentsServiceDeskPlusRequestReadListCmd() *cobra.Command {
 	var fAsc bool
 	var fChannelIDs []int
 	var fEndTime string
-	var fUntil string
 	var fIncidentID string
 	var fIntegrationID int64
 	var fRequestID string
 	var fStartTime string
-	var fSince string
 	var fStatus string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "sdp-request-list",
 		Short: "Get ServiceDeskPlus linked incidents",
@@ -180,6 +179,8 @@ Request fields:
   --request-id string — ServiceDeskPlus request ID. (≤64 chars)
   --start-time string — Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --status string — Filter by sync status: 'success' or 'failed'. [success, failed]
+  --since string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+  --until string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when more results are available.
@@ -200,15 +201,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty incident sdp-request-list --data '{"channel_ids":[12345],"end_time":1779600000,"limit":20,"start_time":1779513600,"status":"success"}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
 				if err != nil {
 					return err
 				}
-				genNoteWindow(cmd, vStartTime, vEndTime, okStartTime && okEndTime)
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
@@ -248,6 +248,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_time", End: "end_time", Millis: false, Where: "--data or --start-time/--end-time"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.ServiceDeskPlusRequestListRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -265,14 +268,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "When 'true', sort by internal record ID ascending; otherwise descending.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to filter by.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than or equal to 'start_time'. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
-	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than or equal to 'start_time'. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fIncidentID, "incident-id", "", "Flashduty incident ID. When set, the time window can be omitted. (≤64 chars)")
 	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "ServiceDeskPlus integration ID. (min 0)")
 	cmd.Flags().StringVar(&fRequestID, "request-id", "", "ServiceDeskPlus request ID. (≤64 chars)")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
-	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Window start, Unix seconds. Optional when 'incident_id' is provided. (min 0) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Filter by sync status: 'success' or 'failed'. [success, failed]")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -1597,7 +1600,6 @@ func genIncidentsListCmd() *cobra.Command {
 	var fCloserIDs []int
 	var fCreatorIDs []int
 	var fEndTime string
-	var fUntil string
 	var fEverMuted bool
 	var fHasUnfinishedWorkItem bool
 	var fIncidentIDs []string
@@ -1611,8 +1613,8 @@ func genIncidentsListCmd() *cobra.Command {
 	var fQuery string
 	var fResponderIDs []int
 	var fStartTime string
-	var fSince string
 	var fTeamIDs []int
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List incidents",
@@ -1646,6 +1648,8 @@ Request fields:
   --responder-ids []int — Filter by responder member IDs; obtain member IDs from 'POST /member/list'.
   --start-time string (required) — Start of the time window (Unix timestamp in seconds). The window with 'end_time' may span at most 31 days and filters by incident start time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
   --team-ids []int — Team IDs; resolved to channels via channel ownership.
+  --since string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+  --until string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — Whether another page exists. Reflects the real data with both 'p'/'limit' and 'search_after_ctx' paging, including past the 1,000 cap of 'total'. Always 'false' for 'POST /incident/list-by-ids'.
@@ -1816,15 +1820,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty incident list --data '{"channel_ids":[2551105804131],"end_time":1712000000,"incident_severity":"Critical,Warning","limit":20,"p":1,"progress":"Triggered,Processing","start_time":1711900800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
 				if err != nil {
 					return err
 				}
-				genNoteWindow(cmd, vStartTime, vEndTime, okStartTime && okEndTime)
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
@@ -1900,6 +1903,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_time", End: "end_time", Millis: false, Where: "--data or --start-time/--end-time"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.ListIncidentsRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -1920,8 +1926,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Channel IDs to filter by. Use 0 for standalone (global) incidents.")
 	cmd.Flags().IntSliceVar(&fCloserIDs, "closer-ids", nil, "Closer member IDs. Use 0 for automatically closed incidents.")
 	cmd.Flags().IntSliceVar(&fCreatorIDs, "creator-ids", nil, "Creator member IDs. Use 0 for automatically created incidents.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than 'start_time' and within 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
-	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "Window end, Unix seconds. Must be greater than 'start_time' and within 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fEverMuted, "ever-muted", false, "When true, include only incidents that were ever silenced.")
 	cmd.Flags().BoolVar(&fHasUnfinishedWorkItem, "has-unfinished-work-item", false, "When true, include only incidents that still have an action item or follow-up that is neither 'done' nor 'cancelled'. 'false' applies no filter.")
 	cmd.Flags().StringSliceVar(&fIncidentIDs, "incident-ids", nil, "Restrict to the given incident IDs.")
@@ -1934,9 +1939,10 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fProgress, "progress", "", "Comma-separated progress states to match, for example 'Triggered,Processing'. Values: 'Triggered' not yet acknowledged; 'Processing' acknowledged and being handled; 'Closed' resolved. Omit to match every state.")
 	cmd.Flags().StringVar(&fQuery, "query", "", "Full-text search query.")
 	cmd.Flags().IntSliceVar(&fResponderIDs, "responder-ids", nil, "Filter by responder member IDs; obtain member IDs from 'POST /member/list'.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the time window (Unix timestamp in seconds). The window with 'end_time' may span at most 31 days and filters by incident start time. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
-	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the time window (Unix timestamp in seconds). The window with 'end_time' may span at most 31 days and filters by incident start time. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Team IDs; resolved to channels via channel ownership.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -2593,6 +2599,7 @@ func genIncidentsPostMortemListCmd() *cobra.Command {
 	var fOrderBy string
 	var fStatus string
 	var fTeamIDs []int
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "post-mortem-list",
 		Short: "List post-mortems",
@@ -2613,6 +2620,8 @@ Request fields:
   --order-by string — Sort field: 'created_at_seconds' creation time, 'updated_at_seconds' last update time. [created_at_seconds, updated_at_seconds]
   --status string — Optional status filter: 'drafting' returns only drafts, 'published' returns only published post-mortems. When omitted, post-mortems in all statuses are returned. [drafting, published]
   --team-ids []int — Team IDs to restrict the query to.
+  --since string — Window start, written to created_at_start_seconds (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --created-at-start-seconds/--created-at-end-seconds also sets is an error.
+  --until string — Window end, written to created_at_end_seconds (Unix seconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) (required) — True when more results are available beyond this page.
@@ -2683,6 +2692,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "created_at_start_seconds", End: "created_at_end_seconds", Millis: false, Where: "--data or --created-at-start-seconds/--created-at-end-seconds"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.ListPostMortemsRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -2705,6 +2717,8 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fOrderBy, "order-by", "", "Sort field: 'created_at_seconds' creation time, 'updated_at_seconds' last update time. [created_at_seconds, updated_at_seconds]")
 	cmd.Flags().StringVar(&fStatus, "status", "", "Optional status filter: 'drafting' returns only drafts, 'published' returns only published post-mortems. When omitted, post-mortems in all statuses are returned. [drafting, published]")
 	cmd.Flags().IntSliceVar(&fTeamIDs, "team-ids", nil, "Team IDs to restrict the query to.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to created_at_start_seconds (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --created-at-start-seconds/--created-at-end-seconds also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to created_at_end_seconds (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

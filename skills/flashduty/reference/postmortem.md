@@ -100,8 +100,10 @@ List post-mortems
 - `--order-by` string — Sort field: 'created_at_seconds' creation time, 'updated_at_seconds' last update time. · enum: created_at_seconds | updated_at_seconds
 - `--page` int64 — Page number starting at 1. (min 0)
 - `--search-after-ctx` string — Cursor from a previous response for forward pagination.
+- `--since` string — Window start, written to created_at_start_seconds (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --created-at-start-seconds/--created-at-end-seconds also sets is an error.
 - `--status` string — Optional status filter: 'drafting' returns only drafts, 'published' returns only published post-mortems. When omitted, post-mortems in all statuses are returned. · enum: drafting | published
 - `--team-ids` intSlice — Team IDs to restrict the query to.
+- `--until` string — Window end, written to created_at_end_seconds (Unix seconds); same forms as --since, plus '+2h' for the future.
 - response: `{items: [...], has_next_page, search_after_ctx, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); author_ids (array<integer>); channel_id (integer); channel_name (string); created_at_seconds (string); generation (integer); incident_ids (array<string>); is_private (boolean); media_count (integer); post_mortem_id (string); revision (integer); status (string); team_id (integer); template_id (string); title (string); updated_at_seconds (string)
 
 ### post-mortem-status-reset <post-mortem-id>

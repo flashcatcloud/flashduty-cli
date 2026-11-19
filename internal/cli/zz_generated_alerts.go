@@ -16,13 +16,12 @@ func genAlertsEventReadListCmd() *cobra.Command {
 	var fAsc bool
 	var fChannelIDs []int
 	var fEndTime string
-	var fUntil string
 	var fIntegrationIDs []int
 	var fIntegrationTypes []string
 	var fOrderby string
 	var fSeverities string
 	var fStartTime string
-	var fSince string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List raw alert events",
@@ -44,6 +43,8 @@ Request fields:
   --orderby string — Sort field; only 'event_time' is supported. [event_time]
   --severities string — Comma-separated filter on 'event_severity', e.g. 'Critical,Warning'. Meaningful values: 'Critical', 'Warning', 'Info'. Values are not validated; an unknown value (or 'Ok') matches nothing.
   --start-time string (required) — Start of the search window, Unix epoch seconds. Must be greater than 0. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --since string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+  --until string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — Whether a next page exists (probed by fetching limit+1 rows).
@@ -76,15 +77,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty alert-event list --data '{"end_time":1712707200,"limit":20,"severities":"Critical","start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
 				if err != nil {
 					return err
 				}
-				genNoteWindow(cmd, vStartTime, vEndTime, okStartTime && okEndTime)
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
@@ -124,6 +124,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_time", End: "end_time", Millis: false, Where: "--data or --start-time/--end-time"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.AlertEventGlobalListRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -141,14 +144,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().StringVar(&fSearchAfterCtx, "search-after-ctx", "", "Pagination cursor: leave empty for the first page, then pass the 'search_after_ctx' returned by the previous response.")
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending when 'true'.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs. At most 100 entries. Channels the caller cannot access are dropped; if none remain, the result is empty.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
-	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
 	cmd.Flags().StringSliceVar(&fIntegrationTypes, "integration-types", nil, "Filter by integration types (plugin keys).")
 	cmd.Flags().StringVar(&fOrderby, "orderby", "", "Sort field; only 'event_time' is supported. [event_time]")
 	cmd.Flags().StringVar(&fSeverities, "severities", "", "Comma-separated filter on 'event_severity', e.g. 'Critical,Warning'. Meaningful values: 'Critical', 'Warning', 'Info'. Values are not validated; an unknown value (or 'Ok') matches nothing.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
-	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds. Must be greater than 0. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
@@ -489,12 +492,11 @@ func genAlertsReadListCmd() *cobra.Command {
 	var fByUpdatedAt bool
 	var fChannelIDs []int
 	var fEndTime string
-	var fUntil string
 	var fEverMuted bool
 	var fIntegrationIDs []int
 	var fIsActive bool
 	var fStartTime string
-	var fSince string
+	var fSince, fUntil string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List alerts",
@@ -519,6 +521,8 @@ Request fields:
   --integration-ids []int — Filter by integration IDs.
   --is-active bool — Filter by lifecycle: 'true' returns only firing alerts (status 'Critical'/'Warning'/'Info'), 'false' returns only recovered alerts (status 'Ok'). Omit or pass 'null' to return both.
   --start-time string (required) — Start of the search window, Unix epoch seconds, applied to the alert's 'start_time'. A value earlier than the account's data retention period is moved up to the retention start. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.
+  --since string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
+  --until string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 
 Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
   - has_next_page (boolean) — 'true' when another page exists. Exact in both cursor mode ('search_after_ctx' sent) and page-number mode, including past the 1,000 cap of 'total'.
@@ -591,15 +595,14 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 		Example: `  flashduty alert list --data '{"end_time":1712707200,"is_active":true,"limit":20,"start_time":1712620800}'`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runCommand(cmd, args, func(ctx *RunContext) error {
-				vEndTime, okEndTime, err := genParseTimeFlagAlias(cmd, "end-time", "until", fEndTime, fUntil)
+				vEndTime, okEndTime, err := genParseTimeFlag(cmd, "end-time", fEndTime)
 				if err != nil {
 					return err
 				}
-				vStartTime, okStartTime, err := genParseTimeFlagAlias(cmd, "start-time", "since", fStartTime, fSince)
+				vStartTime, okStartTime, err := genParseTimeFlag(cmd, "start-time", fStartTime)
 				if err != nil {
 					return err
 				}
-				genNoteWindow(cmd, vStartTime, vEndTime, okStartTime && okEndTime)
 				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
 					if cmd.Flags().Changed("page") {
 						body["p"] = fP
@@ -648,6 +651,9 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 				if err != nil {
 					return err
 				}
+				if err := genApplyRange(cmd, body, timeRange{Container: "", Start: "start_time", End: "end_time", Millis: false, Where: "--data or --start-time/--end-time"}, fSince, fUntil); err != nil {
+					return err
+				}
 				req := new(flashduty.AlertListRequest)
 				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
 					return err
@@ -669,13 +675,13 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	cmd.Flags().BoolVar(&fAsc, "asc", false, "Sort ascending by 'start_time' when 'true'; default is descending.")
 	cmd.Flags().BoolVar(&fByUpdatedAt, "by-updated-at", false, "When 'true', also require the alert's 'updated_at' to fall within ['start_time', 'end_time'], in addition to the 'start_time' filter; the span must then not exceed 7 days.")
 	cmd.Flags().IntSliceVar(&fChannelIDs, "channel-ids", nil, "Filter by channel IDs.")
-	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days (7 days with 'by_updated_at'). A value before the start of the data retention period returns 'InvalidParameter'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --until)")
-	cmd.Flags().StringVar(&fUntil, "until", "", "Alias for --end-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fEndTime, "end-time", "", "End of the search window, Unix epoch seconds. Must be greater than 'start_time'; the span must not exceed 31 days (7 days with 'by_updated_at'). A value before the start of the data retention period returns 'InvalidParameter'. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
 	cmd.Flags().BoolVar(&fEverMuted, "ever-muted", false, "Filter by whether the alert has ever been silenced.")
 	cmd.Flags().IntSliceVar(&fIntegrationIDs, "integration-ids", nil, "Filter by integration IDs.")
 	cmd.Flags().BoolVar(&fIsActive, "is-active", false, "Filter by lifecycle: 'true' returns only firing alerts (status 'Critical'/'Warning'/'Info'), 'false' returns only recovered alerts (status 'Ok'). Omit or pass 'null' to return both.")
-	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds, applied to the alert's 'start_time'. A value earlier than the account's data retention period is moved up to the retention start. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds. (alias: --since)")
-	cmd.Flags().StringVar(&fSince, "since", "", "Alias for --start-time. Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fStartTime, "start-time", "", "Start of the search window, Unix epoch seconds, applied to the alert's 'start_time'. A value earlier than the account's data retention period is moved up to the retention start. (required) Accepts a duration (7d, 24h), '+7d' for the future, 'now', a date, or Unix seconds.")
+	cmd.Flags().StringVar(&fSince, "since", "", "Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.")
+	cmd.Flags().StringVar(&fUntil, "until", "", "Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }

@@ -1221,12 +1221,12 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 			isTime[sf.Wire] = true
 		}
 	}
-	// Every relative-time --start-time/--end-time flag also gets the curated
-	// dialect's --since/--until spelling as an alias for the SAME value (parsed
-	// at runtime by genParseTimeFlagAlias).
-	timeAlias, aliasCollision := timeFlagAliases(scalars, isTime)
-	if aliasCollision != "" {
-		fmt.Fprintf(os.Stderr, "cligen: WARN %s.%s (%s) defines its own --%s flag; skipping --since/--until aliasing\n", s.Name, o.Method, o.OpID, aliasCollision)
+	// A recognized start/end time pair gets the curated dialect's --since/--until,
+	// written into the pair at runtime by genApplyRange.
+	win, hasWin := findTimeRange(o, scalars, specByWire)
+	if hasWin && hasSinceUntilField(scalars) {
+		fmt.Fprintf(os.Stderr, "cligen: WARN %s.%s (%s) defines its own --since/--until; skipping its time-range flags\n", s.Name, o.Method, o.OpID)
+		hasWin = false
 	}
 
 	var b strings.Builder
@@ -1240,9 +1240,9 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 			typ = "string"
 		}
 		fmt.Fprintf(&b, "\tvar %s %s\n", flagVar(sf.Wire), typ)
-		if alias, ok := timeAlias[sf.Wire]; ok {
-			fmt.Fprintf(&b, "\tvar %s string\n", flagVar(alias))
-		}
+	}
+	if hasWin {
+		b.WriteString("\tvar fSince, fUntil string\n")
 	}
 
 	// Command literal. The leaf verb must match the name registered in
@@ -1284,7 +1284,7 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	if o.Deprecated != "" {
 		fmt.Fprintf(&b, "\t\tDeprecated: %q,\n", o.Deprecated)
 	}
-	fmt.Fprintf(&b, "\t\tLong:  %s,\n", quoteMultiline(longHelp(o, scalars, complexFields, specByWire)))
+	fmt.Fprintf(&b, "\t\tLong:  %s,\n", quoteMultiline(longHelp(o, scalars, complexFields, specByWire, win, hasWin)))
 	if aliases := opAliases[o.OpID]; len(aliases) > 0 {
 		quoted := make([]string, len(aliases))
 		for i, a := range aliases {
@@ -1318,29 +1318,9 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 		if !isTime[sf.Wire] {
 			continue
 		}
-		if alias, ok := timeAlias[sf.Wire]; ok {
-			fmt.Fprintf(&b, "\t\t\t\t%s, %s, err := genParseTimeFlagAlias(cmd, %q, %q, %s, %s)\n",
-				parsedTimeVar(sf.Wire), okTimeVar(sf.Wire), flagName(sf.Wire), alias, flagVar(sf.Wire), flagVar(alias))
-		} else {
-			fmt.Fprintf(&b, "\t\t\t\t%s, %s, err := genParseTimeFlag(cmd, %q, %s)\n",
-				parsedTimeVar(sf.Wire), okTimeVar(sf.Wire), flagName(sf.Wire), flagVar(sf.Wire))
-		}
+		fmt.Fprintf(&b, "\t\t\t\t%s, %s, err := genParseTimeFlag(cmd, %q, %s)\n",
+			parsedTimeVar(sf.Wire), okTimeVar(sf.Wire), flagName(sf.Wire), flagVar(sf.Wire))
 		b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
-	}
-	// A --start-time/--end-time pair (the one aliased to --since/--until)
-	// echoes the window it resolved, like the curated windowed verbs.
-	var startWire, endWire string
-	for wire, alias := range timeAlias {
-		switch alias {
-		case "since":
-			startWire = wire
-		case "until":
-			endWire = wire
-		}
-	}
-	if startWire != "" && endWire != "" {
-		fmt.Fprintf(&b, "\t\t\t\tgenNoteWindow(cmd, %s, %s, %s && %s)\n",
-			parsedTimeVar(startWire), parsedTimeVar(endWire), okTimeVar(startWire), okTimeVar(endWire))
 	}
 	// body assembly. The positional argument folds in first (after --data, before
 	// the typed flags) so an explicitly-set flag for the same field overrides it,
@@ -1362,6 +1342,9 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	b.WriteString("\t\t\t\t\treturn nil\n")
 	b.WriteString("\t\t\t\t})\n")
 	b.WriteString("\t\t\t\tif err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n")
+	if hasWin {
+		fmt.Fprintf(&b, "\t\t\t\tif err := genApplyRange(cmd, body, %s, fSince, fUntil); err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n", win.literal())
+	}
 
 	call := fmt.Sprintf("ctx.Client.%s.%s(cmdContext(ctx.Cmd)", s.Name, o.Method)
 	if mi.ReqType != "" {
@@ -1406,19 +1389,16 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 	for _, sf := range scalars {
 		usage := flagUsage(specByWire[sf.Wire])
 		if isTime[sf.Wire] {
-			if alias, ok := timeAlias[sf.Wire]; ok {
-				fmt.Fprintf(&b, "\tcmd.Flags().StringVar(&%s, %q, \"\", %q)\n",
-					flagVar(sf.Wire), flagName(sf.Wire), usage+relativeTimeHint+" (alias: --"+alias+")")
-				fmt.Fprintf(&b, "\tcmd.Flags().StringVar(&%s, %q, \"\", %q)\n",
-					flagVar(alias), alias, "Alias for --"+flagName(sf.Wire)+"."+relativeTimeHint)
-				continue
-			}
 			fmt.Fprintf(&b, "\tcmd.Flags().StringVar(&%s, %q, \"\", %q)\n",
 				flagVar(sf.Wire), flagName(sf.Wire), usage+relativeTimeHint)
 			continue
 		}
 		fmt.Fprintf(&b, "\tcmd.Flags().%s(&%s, %q, %s, %q)\n",
 			flagSetter(sf.Kind), flagVar(sf.Wire), flagName(sf.Wire), flagZero(sf.Kind), usage)
+	}
+	if hasWin {
+		fmt.Fprintf(&b, "\tcmd.Flags().StringVar(&fSince, \"since\", \"\", %q)\n", win.sinceUsage())
+		fmt.Fprintf(&b, "\tcmd.Flags().StringVar(&fUntil, \"until\", \"\", %q)\n", win.untilUsage())
 	}
 	b.WriteString("\tcmd.Flags().StringVar(&dataJSON, \"data\", \"\", \"Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.\")\n")
 	b.WriteString("\treturn cmd\n}\n\n")
@@ -1532,7 +1512,7 @@ func emitListDefaults(services []service) string {
 
 // ---- help text -------------------------------------------------------------
 
-func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire map[string]specField) string {
+func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire map[string]specField, win timeRange, hasWin bool) string {
 	var b strings.Builder
 	if o.Summary != "" {
 		b.WriteString(strings.TrimSuffix(o.Summary, ".") + ".\n")
@@ -1571,6 +1551,10 @@ func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire ma
 				line += relativeTimeHint
 			}
 			b.WriteString(line + "\n")
+		}
+		if hasWin {
+			b.WriteString("  --since string — " + win.sinceUsage() + "\n")
+			b.WriteString("  --until string — " + win.untilUsage() + "\n")
 		}
 		reqByWire := map[string]schemaField{}
 		for _, n := range o.ReqTree {
@@ -1763,43 +1747,144 @@ func flagVar(wire string) string { return "f" + pascal(tokens(wire)) }
 func parsedTimeVar(wire string) string { return "v" + pascal(tokens(wire)) }
 func okTimeVar(wire string) string     { return "ok" + pascal(tokens(wire)) }
 
-// timeFlagAliases computes the --since/--until alias spelling for each
-// relative-time flag whose emitted name is exactly --start-time/--end-time,
-// returning wire → alias ("since"/"until"). The alias is a second StringVar
-// bound beside the canonical flag, merged at parse time by
-// genParseTimeFlagAlias, so both spellings accept the identical
-// duration/date/Unix-seconds forms the curated --since/--until flags do.
-// Only the relative-time (StringVar) sites qualify: a plain-int millisecond
-// --start-time has no duration parsing to alias identically, and a
-// millisecond-valued --since would fracture the very dialect the alias unifies.
-//
-// Collision guard: if the command's spec defines its own literal since/until
-// param, aliasing is skipped for the WHOLE command (nil map) and the colliding
-// flag name is returned so the caller can log it — an alias must never
-// silently shadow a real spec flag.
-func timeFlagAliases(scalars []scalarField, isTime map[string]bool) (aliases map[string]string, collision string) {
-	aliases = map[string]string{}
+// timeRange is a request's start/end time pair, the fields --since/--until
+// write. It mirrors the runtime cli.timeRange the generated code passes to
+// genApplyRange (see literal).
+type timeRange struct {
+	Container  string // object field holding the pair; "" = the body's top level
+	Start, End string // wire names
+	Millis     bool   // Unix milliseconds rather than seconds
+	Where      string // the other ways the fields are set, for conflict errors
+}
+
+// rangeEnd maps a start-of-window name token to its end-of-window counterpart:
+// start_time/end_time, from_ms/to_ms, started_after_ms/started_before_ms,
+// created_at_start_seconds/created_at_end_seconds.
+var rangeEnd = map[string]string{"start": "end", "from": "to", "after": "before"}
+
+// findTimeRange recognizes the one start/end time pair of a read operation:
+// two Unix timestamps of the same unit whose names differ only in one
+// start/end token (rangeEnd), either top-level request fields or the children
+// of one top-level object field (dashboard `time`, query `execution`). It
+// reports false when there is no pair, or more than one (no basis to pick),
+// and for create/update operations, whose time pairs are stored schedules
+// (silence windows, maintenance slots) rather than a window to read over.
+func findTimeRange(o specOp, scalars []scalarField, byWire map[string]specField) (timeRange, bool) {
+	if segs := pathSegs(o.Path); len(segs) > 0 {
+		if last := segs[len(segs)-1]; last == "create" || last == "update" {
+			return timeRange{}, false
+		}
+	}
+	var found []timeRange
+	top := make([]rangeCandidate, 0, len(scalars))
 	for _, sf := range scalars {
-		if !isTime[sf.Wire] {
+		top = append(top, rangeCandidate{sf.Wire, sf.Kind, byWire[sf.Wire].Desc})
+	}
+	for _, r := range pairRanges(top) {
+		r.Where = "--data or --" + flagName(r.Start) + "/--" + flagName(r.End)
+		found = append(found, r)
+	}
+	for _, n := range o.ReqTree {
+		if n.Type != "object" {
 			continue
 		}
-		switch flagName(sf.Wire) {
-		case "start-time":
-			aliases[sf.Wire] = "since"
-		case "end-time":
-			aliases[sf.Wire] = "until"
+		var kids []rangeCandidate
+		for _, c := range n.Children {
+			kind := c.Type
+			if kind == "integer" {
+				kind = "int"
+			}
+			kids = append(kids, rangeCandidate{c.Wire, kind, c.Desc})
+		}
+		for _, r := range pairRanges(kids) {
+			r.Container, r.Where = n.Wire, "--data"
+			found = append(found, r)
 		}
 	}
-	if len(aliases) == 0 {
-		return nil, ""
+	if len(found) != 1 {
+		return timeRange{}, false
 	}
+	return found[0], true
+}
+
+type rangeCandidate struct{ wire, kind, desc string }
+
+// pairRanges returns the start/end timestamp pairs among sibling fields.
+func pairRanges(fields []rangeCandidate) []timeRange {
+	unit := map[string]string{}
+	for _, f := range fields {
+		switch {
+		case isUnixSecondsField(f.wire, f.kind, f.desc):
+			unit[f.wire] = "s"
+		case isUnixMillisField(f.kind, f.desc):
+			unit[f.wire] = "ms"
+		}
+	}
+	var out []timeRange
+	for _, f := range fields {
+		u, ok := unit[f.wire]
+		if !ok {
+			continue
+		}
+		end := endWire(f.wire)
+		if end != "" && unit[end] == u {
+			out = append(out, timeRange{Start: f.wire, End: end, Millis: u == "ms"})
+		}
+	}
+	return out
+}
+
+// endWire is the end-of-window counterpart of a start-of-window wire name, or
+// "" when the name has no start token.
+func endWire(wire string) string {
+	toks := strings.Split(wire, "_")
+	for i, t := range toks {
+		if e, ok := rangeEnd[t]; ok {
+			toks[i] = e
+			return strings.Join(toks, "_")
+		}
+	}
+	return ""
+}
+
+// hasSinceUntilField reports whether the request defines its own since/until
+// field, whose flag a generated --since/--until would shadow.
+func hasSinceUntilField(scalars []scalarField) bool {
 	for _, sf := range scalars {
-		switch name := flagName(sf.Wire); name {
-		case "since", "until":
-			return nil, name
+		if name := flagName(sf.Wire); name == "since" || name == "until" {
+			return true
 		}
 	}
-	return aliases, ""
+	return false
+}
+
+// path is the dotted request path of a range field ("time.from_ms").
+func (r timeRange) path(wire string) string {
+	if r.Container == "" {
+		return wire
+	}
+	return r.Container + "." + wire
+}
+
+func (r timeRange) unit() string {
+	if r.Millis {
+		return "Unix milliseconds"
+	}
+	return "Unix seconds"
+}
+
+// literal renders the runtime cli.timeRange value.
+func (r timeRange) literal() string {
+	return fmt.Sprintf("timeRange{Container: %q, Start: %q, End: %q, Millis: %t, Where: %q}", r.Container, r.Start, r.End, r.Millis, r.Where)
+}
+
+func (r timeRange) sinceUsage() string {
+	return fmt.Sprintf("Window start, written to %s (%s): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field %s also sets is an error.",
+		r.path(r.Start), r.unit(), r.Where)
+}
+
+func (r timeRange) untilUsage() string {
+	return fmt.Sprintf("Window end, written to %s (%s); same forms as --since, plus '+2h' for the future.", r.path(r.End), r.unit())
 }
 
 // isUnixSecondsField reports whether an integer request field is a unix-SECONDS
@@ -1835,6 +1920,20 @@ func isUnixSecondsField(name, kind, desc string) bool {
 		return true
 	}
 	return strings.HasSuffix(n, "_seconds") && strings.Contains(n, "_at_")
+}
+
+// isUnixMillisField reports whether an integer request field is a Unix
+// MILLISECOND timestamp. Its flag keeps taking the raw integer (a relative
+// form parsed to seconds would drop the millisecond digits); only the
+// --since/--until pair over it converts. A millisecond duration ("bucket
+// width in milliseconds") names no unix/epoch/timestamp and is excluded.
+func isUnixMillisField(kind, desc string) bool {
+	if kind != "int" {
+		return false
+	}
+	d := strings.ToLower(desc)
+	return strings.Contains(d, "millisecond") &&
+		(strings.Contains(d, "unix") || strings.Contains(d, "epoch") || strings.Contains(d, "timestamp"))
 }
 
 // relativeTimeHint documents the forms a relative-time flag accepts. Appended to

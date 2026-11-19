@@ -151,7 +151,7 @@ func TestInsightIncidentExportComplete(t *testing.T) {
 	csvBody := "incident_id,title\ninc-1,a\ninc-2,b\ninc-3,c\n"
 	newInsightExportStub(t, csvBody, 3)
 
-	stdout, stderr, err := execCommandSplit("insight", "incident-export", "--start-time", "1000", "--end-time", "2000")
+	stdout, stderr, err := execCommandSplit("insight", "incident-export", "--start-time", "1767362400", "--end-time", "1767366000")
 	if err != nil {
 		t.Fatalf("execCommand: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestInsightIncidentExportTruncatedFailsLoudly(t *testing.T) {
 	csvBody := "incident_id,title\ninc-1,a\ninc-2,b\n"
 	newInsightExportStub(t, csvBody, 5)
 
-	stdout, stderr, err := execCommandSplit("insight", "incident-export", "--start-time", "1000", "--end-time", "2000")
+	stdout, stderr, err := execCommandSplit("insight", "incident-export", "--start-time", "1767362400", "--end-time", "1767366000")
 	if err == nil {
 		t.Fatal("expected a non-nil error on truncated export, got nil")
 	}
@@ -195,7 +195,7 @@ func TestInsightIncidentExportCountsQuotedRows(t *testing.T) {
 	csvBody := "incident_id,description\ninc-1,\"line one\nline two\"\ninc-2,\"a\nb\nc\"\n"
 	newInsightExportStub(t, csvBody, 2)
 
-	_, stderr, err := execCommandSplit("insight", "incident-export", "--start-time", "1000", "--end-time", "2000")
+	_, stderr, err := execCommandSplit("insight", "incident-export", "--start-time", "1767362400", "--end-time", "1767366000")
 	if err != nil {
 		t.Fatalf("execCommand: %v", err)
 	}
@@ -212,18 +212,18 @@ func TestInsightIncidentExportForwardsFilterToBothEndpoints(t *testing.T) {
 	stub := newInsightExportStub(t, "incident_id\ninc-1\n", 1)
 
 	if _, _, err := execCommandSplit("insight", "incident-export",
-		"--start-time", "1000", "--end-time", "2000", "--severities", "Critical"); err != nil {
+		"--start-time", "1767362400", "--end-time", "1767366000", "--severities", "Critical"); err != nil {
 		t.Fatalf("execCommand: %v", err)
 	}
 	for name, body := range map[string]map[string]any{"export": stub.exportBody, "list": stub.listBody} {
 		if body == nil {
 			t.Fatalf("%s endpoint was never called", name)
 		}
-		if got, _ := body["start_time"].(float64); got != 1000 {
-			t.Errorf("%s start_time = %#v, want 1000", name, body["start_time"])
+		if got, _ := body["start_time"].(float64); got != 1767362400 {
+			t.Errorf("%s start_time = %#v, want 1767362400", name, body["start_time"])
 		}
-		if got, _ := body["end_time"].(float64); got != 2000 {
-			t.Errorf("%s end_time = %#v, want 2000", name, body["end_time"])
+		if got, _ := body["end_time"].(float64); got != 1767366000 {
+			t.Errorf("%s end_time = %#v, want 1767366000", name, body["end_time"])
 		}
 		if got := fmt.Sprint(body["severities"]); got != "[Critical]" {
 			t.Errorf("%s severities = %q, want [Critical]", name, got)
