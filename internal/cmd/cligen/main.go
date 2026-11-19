@@ -1057,6 +1057,31 @@ var optionalPositional = map[string]bool{
 	"incidentInfo": true,
 }
 
+// incidentIDWires are the request fields of incident operations that carry
+// incident ids; a generated incident command resolves 6-char short ids in them
+// (genResolveIncidentIDs) before binding the request.
+var incidentIDWires = map[string]bool{
+	"incident_id":         true,
+	"incident_ids":        true,
+	"target_incident_id":  true,
+	"source_incident_ids": true,
+}
+
+// readsIncidentOp reports whether an incident operation only reads: its
+// operationId says read, or its path ends in a read verb. Every other
+// incident operation that takes an incident id changes the incident, so a
+// short id it was given is stated on stderr before the request is sent.
+func readsIncidentOp(o specOp) bool {
+	if strings.Contains(o.OpID, "-read-") {
+		return true
+	}
+	switch o.Path[strings.LastIndex(o.Path, "/")+1:] {
+	case "list", "info", "feed", "detail", "list-by-ids":
+		return true
+	}
+	return false
+}
+
 // opAliases maps an operationId to extra cobra aliases its generated command
 // should accept, keyed like positionalOverride. Generated verbs are path-derived
 // (channelInfo → "info"), which diverges from the get/detail spelling curated
@@ -1348,6 +1373,23 @@ func emitCmd(fn string, s service, o specOp, mi methodInfo) string {
 
 	call := fmt.Sprintf("ctx.Client.%s.%s(cmdContext(ctx.Cmd)", s.Name, o.Method)
 	if mi.ReqType != "" {
+		// Incident commands accept the 6-char short id wherever the request
+		// takes an incident id; it is resolved to the full id before binding.
+		if s.Name == "Incidents" {
+			var wires []string
+			for _, f := range o.Fields {
+				if incidentIDWires[f.Wire] {
+					wires = append(wires, fmt.Sprintf("%q", f.Wire))
+				}
+			}
+			if len(wires) > 0 {
+				use := "writesIncidents"
+				if readsIncidentOp(o) {
+					use = "readsIncidents"
+				}
+				fmt.Fprintf(&b, "\t\t\t\tif err := genResolveIncidentIDs(ctx, body, %s, %s); err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n", use, strings.Join(wires, ", "))
+			}
+		}
 		for _, f := range o.Fields {
 			if f.RejectNull {
 				fmt.Fprintf(&b, "\t\t\t\tif err := genRejectNullField(body, %q); err != nil {\n\t\t\t\t\treturn err\n\t\t\t\t}\n", f.Wire)

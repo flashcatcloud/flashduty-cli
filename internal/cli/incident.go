@@ -213,14 +213,15 @@ var reShortIncidentID = regexp.MustCompile(`^[0-9a-fA-F]{6}$`)
 
 // resolveIncidentArg maps a user-supplied incident argument to a full 24-char
 // incident id. A full id — or any value that isn't a 6-char short id — passes
-// through unchanged, preserving existing behavior. A 6-char short id ("num", as
-// shown in the UI) is resolved against the last shortIDResolveDays days via
-// /incident/list. A unique hit returns the full id; multiple hits return the
-// candidates (the short id is non-unique by design) so the caller can surface
-// them; no hit returns a descriptive error.
-func resolveIncidentArg(ctx *RunContext, arg string) (fullID string, candidates []flashduty.IncidentInfo, err error) {
+// through unchanged without a request. A 6-char short id ("num", as shown in
+// the UI) is resolved against the last shortIDResolveDays days via
+// /incident/list: a unique hit returns the full id and a one-line note naming
+// the incident it resolved to; several hits (the short id
+// is not unique by design) return an error listing the candidates; no hit
+// returns a descriptive error.
+func resolveIncidentArg(ctx *RunContext, arg string) (id, note string, err error) {
 	if !reShortIncidentID.MatchString(arg) {
-		return arg, nil, nil
+		return arg, "", nil
 	}
 
 	end := time.Now().Unix()
@@ -231,19 +232,138 @@ func resolveIncidentArg(ctx *RunContext, arg string) (fullID string, candidates 
 		EndTime:   end,
 	})
 	if err != nil {
-		return "", nil, err
+		return "", "", err
 	}
 
 	switch len(res.Items) {
 	case 0:
-		return "", nil, fmt.Errorf(
+		return "", "", fmt.Errorf(
 			"no incident with short id %q in the last %d days; older incidents must be queried by their full 24-char id",
 			arg, shortIDResolveDays)
 	case 1:
-		return res.Items[0].IncidentID, nil, nil
+		inc := res.Items[0]
+		started := "at an unknown time"
+		if !inc.StartTime.IsZero() {
+			started = formatLocal(inc.StartTime.Time())
+		}
+		return inc.IncidentID, fmt.Sprintf("resolved %s → %s %s started %s",
+			arg, inc.IncidentID, strconv.Quote(capText(inc.Title, digestCellCap)), started), nil
 	default:
-		return "", res.Items, nil
+		return "", "", ambiguousShortIDError(arg, res.Items)
 	}
+}
+
+// resolveIncidentArgs resolves every argument with resolveIncidentArg before
+// returning, so a command acts on none of them when any one is unknown or
+// ambiguous. A short id given twice is looked up once. notes holds one line
+// per short id resolved.
+func resolveIncidentArgs(ctx *RunContext, args []string) (ids, notes []string, err error) {
+	ids = make([]string, len(args))
+	seen := map[string]string{}
+	for i, a := range args {
+		if full, ok := seen[a]; ok {
+			ids[i] = full
+			continue
+		}
+		full, note, err := resolveIncidentArg(ctx, a)
+		if err != nil {
+			return nil, nil, err
+		}
+		if note != "" {
+			notes = append(notes, note)
+		}
+		seen[a] = full
+		ids[i] = full
+	}
+	return ids, notes, nil
+}
+
+// incidentUse says whether a command reads or changes the incidents it is
+// given. A write states on stderr which incident each short id resolved to
+// before acting, since a short id is only unique among recent incidents.
+type incidentUse bool
+
+const (
+	readsIncidents  incidentUse = false
+	writesIncidents incidentUse = true
+)
+
+// noteResolved prints a write's resolution notes to stderr.
+func noteResolved(ctx *RunContext, use incidentUse, notes []string) {
+	if use != writesIncidents {
+		return
+	}
+	for _, n := range notes {
+		_, _ = fmt.Fprintln(ctx.Cmd.ErrOrStderr(), n)
+	}
+}
+
+// runIncidentCommand is runCommand for a command whose positional arguments
+// are incident ids: ctx.Args holds the resolved full ids when fn runs, and
+// ctx.resolved the resolution notes, which a write has already printed.
+func runIncidentCommand(cmd *cobra.Command, args []string, use incidentUse, fn func(ctx *RunContext) error) error {
+	return runCommand(cmd, args, func(ctx *RunContext) error {
+		ids, notes, err := resolveIncidentArgs(ctx, ctx.Args)
+		if err != nil {
+			return err
+		}
+		noteResolved(ctx, use, notes)
+		ctx.Args, ctx.resolved = ids, notes
+		return fn(ctx)
+	})
+}
+
+// resolvedPrompt leads a confirmation question with the incidents its short
+// ids resolved to, so the prompt names what is about to change.
+func resolvedPrompt(ctx *RunContext, question string) string {
+	if len(ctx.resolved) == 0 {
+		return question
+	}
+	return strings.Join(ctx.resolved, "\n") + "\n" + question
+}
+
+// genResolveIncidentIDs resolves short ids in the named incident-id fields of
+// a request body, however they were supplied (positional, typed flag or
+// --data). A string field holds one id, a list field several; a value of any
+// other shape is left for request binding to reject. Every field is resolved
+// before a write prints its notes.
+func genResolveIncidentIDs(ctx *RunContext, body map[string]any, use incidentUse, wires ...string) error {
+	var notes []string
+	for _, wire := range wires {
+		v := body[wire]
+		// --data decodes a list as []any; one of only strings reads as []string.
+		if list, ok := v.([]any); ok {
+			ids := make([]string, 0, len(list))
+			for _, e := range list {
+				if s, ok := e.(string); ok {
+					ids = append(ids, s)
+				}
+			}
+			if len(ids) == len(list) {
+				v = ids
+			}
+		}
+		switch x := v.(type) {
+		case string:
+			id, note, err := resolveIncidentArg(ctx, x)
+			if err != nil {
+				return err
+			}
+			body[wire] = id
+			if note != "" {
+				notes = append(notes, note)
+			}
+		case []string:
+			ids, more, err := resolveIncidentArgs(ctx, x)
+			if err != nil {
+				return err
+			}
+			body[wire] = ids
+			notes = append(notes, more...)
+		}
+	}
+	noteResolved(ctx, use, notes)
+	return nil
 }
 
 // ambiguousShortIDError reports a short id that resolved to more than one
@@ -266,23 +386,11 @@ func newIncidentGetCmd() *cobra.Command {
 		Long:  curatedLong("Get details for one or more incidents by ID.", "Incidents", "ListByIDs"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				ids := make([]string, 0, len(ctx.Args))
-				for _, a := range ctx.Args {
-					fullID, candidates, err := resolveIncidentArg(ctx, a)
-					if err != nil {
-						return err
-					}
-					if len(candidates) > 0 {
-						return ambiguousShortIDError(a, candidates)
-					}
-					ids = append(ids, fullID)
-				}
-
+			return runIncidentCommand(cmd, args, readsIncidents, func(ctx *RunContext) error {
 				// /incident/list requires a start_time/end_time window; lookup by id
 				// goes through /incident/list-by-ids, which takes ids alone.
 				result, _, err := ctx.Client.Incidents.ListByIDs(cmdContext(ctx.Cmd), &flashduty.ListIncidentsByIDsRequest{
-					IncidentIDs: ids,
+					IncidentIDs: ctx.Args,
 				})
 				if err != nil {
 					return err
@@ -540,7 +648,7 @@ func newIncidentUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runIncidentCommand(cmd, args, writesIncidents, func(ctx *RunContext) error {
 				incidentID := ctx.Args[0]
 				customFields, err := typedCustomFields(ctx, customFields)
 				if err != nil {
@@ -609,7 +717,7 @@ func newIncidentCloseCmd() *cobra.Command {
 		Short: "Close incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runIncidentCommand(cmd, args, writesIncidents, func(ctx *RunContext) error {
 				if _, err := ctx.Client.Incidents.Resolve(cmdContext(ctx.Cmd), &flashduty.ResolveIncidentRequest{
 					IncidentIDs: ctx.Args,
 				}); err != nil {
@@ -629,7 +737,7 @@ func newIncidentTimelineCmd() *cobra.Command {
 		Long:  curatedLong("View the timeline (feed entries) for one or more incidents.", "Incidents", "Feed"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runIncidentCommand(cmd, args, readsIncidents, func(ctx *RunContext) error {
 				// go-flashduty has no batched timeline endpoint, so fan out per
 				// incident ID over /incident/feed and concatenate the entries,
 				// replicating the legacy SDK's GetIncidentTimelines behavior.
@@ -685,11 +793,39 @@ func newIncidentAlertsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "alerts <id>",
 		Short: "View incident alerts",
-		Long:  curatedLong("View the alerts attached to an incident.", "Incidents", "AlertList"),
-		Args:  requireArgs("incident_id"),
+		Long: curatedLong(`View the alerts attached to an incident.
+
+By default the command prints a bounded plain-text overview: the total, active and recovered counts and counts per severity, the span of alert start times, the labels every alert shares and the value counts of labels with few distinct values, then the alerts grouped by title (count, active count, highest severity, first and last start time, and the labels that set each group apart), largest group first, as many as fit in about 8 KB. It reads up to 5 pages of 100 alerts; when the incident has more, the first line says which alerts the overview covers. With --page or --limit set it covers exactly that page instead, as the json request would read it: --limit 0 or --page 0 leave the server's default; negative values are rejected.
+
+--output-format json (or toon) prints the alert rows of one page (--limit, default 10, and --page) as before; use it for complete rows.`, "Incidents", "AlertList"),
+		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				req := &flashduty.ListIncidentAlertsRequest{IncidentID: ctx.Args[0]}
+			overview := currentOutputFormat() == output.FormatTable
+			if overview && limit < 0 {
+				return fmt.Errorf("invalid --limit %d: must be 0 (the server's default page size) or more", limit)
+			}
+			if overview && page < 0 {
+				return fmt.Errorf("invalid --page %d: must be 0 (the first page) or more", page)
+			}
+			explicit := cmd.Flags().Changed("limit") || cmd.Flags().Changed("page")
+			return runIncidentCommand(cmd, args, readsIncidents, func(ctx *RunContext) error {
+				incidentID := ctx.Args[0]
+				if overview && !explicit {
+					alerts, total, pages, err := fetchAlertOverviewPages(ctx, incidentID)
+					if err != nil {
+						return err
+					}
+					if len(alerts) == 0 {
+						_, _ = fmt.Fprintln(ctx.Writer, "No alerts.")
+						return nil
+					}
+					_, err = io.WriteString(ctx.Writer, alertOverview(alerts, alertScope{
+						incidentID: incidentID, total: total, first: 1, read: plural(pages, "page") + " read",
+					}))
+					return err
+				}
+
+				req := &flashduty.ListIncidentAlertsRequest{IncidentID: incidentID}
 				req.Limit = limit
 				req.Page = page
 				result, _, err := ctx.Client.Incidents.AlertList(cmdContext(ctx.Cmd), req)
@@ -702,21 +838,32 @@ func newIncidentAlertsCmd() *cobra.Command {
 					return nil
 				}
 
-				cols := []output.Column{
-					{Header: "ALERT_ID", Field: func(v any) string { return v.(flashduty.AlertInfo).AlertID }},
-					{Header: "TITLE", MaxWidth: 50, Field: func(v any) string { return v.(flashduty.AlertInfo).Title }},
-					{Header: "SEVERITY", Field: func(v any) string { return v.(flashduty.AlertInfo).AlertSeverity }},
-					{Header: "STATUS", Field: func(v any) string { return v.(flashduty.AlertInfo).AlertStatus }},
-					{Header: "STARTED", Field: func(v any) string { return output.FormatTime(v.(flashduty.AlertInfo).StartTime) }},
+				if overview {
+					// Limit and page 0 are omitted from the request, so the
+					// server's defaults apply.
+					size := limit
+					if size == 0 {
+						size = listDefaultsFor("Incidents", "AlertList").Limit
+					}
+					if size == 0 {
+						size = len(result.Items)
+					}
+					_, err = io.WriteString(ctx.Writer, alertOverview(result.Items, alertScope{
+						incidentID: incidentID,
+						total:      max(int(result.Total), len(result.Items)),
+						first:      (max(page, 1)-1)*size + 1,
+						read:       fmt.Sprintf("--page %d --limit %d", page, limit),
+					}))
+					return err
 				}
 
-				return ctx.PrintList(result.Items, cols, len(result.Items), page, limit, int(result.Total))
+				return ctx.PrintList(result.Items, nil, len(result.Items), page, limit, int(result.Total))
 			})
 		},
 	}
 
-	cmd.Flags().IntVar(&limit, "limit", 10, "Max alerts to show")
-	cmd.Flags().IntVar(&page, "page", 1, "Page number")
+	cmd.Flags().IntVar(&limit, "limit", 10, "Alerts per page for --output-format json/toon; in the default overview, set with --page to cover exactly that page")
+	cmd.Flags().IntVar(&page, "page", 1, "Page number; in the default overview, set with --limit to cover exactly that page")
 	return cmd
 }
 
@@ -730,10 +877,11 @@ func newIncidentSimilarCmd() *cobra.Command {
 		Long:  curatedLong("Find past incidents similar to the given incident.", "Incidents", "PastList"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := checkFieldsFlag(ctx, fields); err != nil {
-					return err
-				}
+			// Checked before the short-id lookup so a flag error sends no request.
+			if err := checkFieldsFlag(&RunContext{Cmd: cmd, Format: currentOutputFormat()}, fields); err != nil {
+				return err
+			}
+			return runIncidentCommand(cmd, args, readsIncidents, func(ctx *RunContext) error {
 
 				result, _, err := ctx.Client.Incidents.PastList(cmdContext(ctx.Cmd), &flashduty.ListPastIncidentsRequest{
 					IncidentID: ctx.Args[0],
@@ -822,14 +970,19 @@ func newIncidentMergeCmd() *cobra.Command {
 		Short: "Merge incidents into a target incident",
 		Args:  requireArgs("target_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				sourceIDs := parseStringSlice(source)
-				if len(sourceIDs) == 0 {
-					return fmt.Errorf("--source is required")
+			sourceIDs := parseStringSlice(source)
+			if len(sourceIDs) == 0 {
+				return fmt.Errorf("--source is required")
+			}
+			if len(sourceIDs) > 100 {
+				return fmt.Errorf("--source accepts at most 100 incident IDs")
+			}
+			return runIncidentCommand(cmd, args, writesIncidents, func(ctx *RunContext) error {
+				sourceIDs, notes, err := resolveIncidentArgs(ctx, sourceIDs)
+				if err != nil {
+					return err
 				}
-				if len(sourceIDs) > 100 {
-					return fmt.Errorf("--source accepts at most 100 incident IDs")
-				}
+				noteResolved(ctx, writesIncidents, notes)
 
 				req := &flashduty.MergeIncidentsRequest{
 					SourceIncidentIDs:     sourceIDs,
@@ -871,20 +1024,19 @@ func newIncidentSnoozeCmd() *cobra.Command {
 		Short: "Snooze incidents",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				d, err := time.ParseDuration(duration)
-				if err != nil {
-					return fmt.Errorf("invalid --duration: %w", err)
-				}
-				if d <= 0 || d > 24*time.Hour {
-					return fmt.Errorf("--duration must be between 1m and 24h")
-				}
-				if d%time.Minute != 0 {
-					return fmt.Errorf("--duration must be in whole minutes")
-				}
+			d, err := time.ParseDuration(duration)
+			if err != nil {
+				return fmt.Errorf("invalid --duration: %w", err)
+			}
+			if d <= 0 || d > 24*time.Hour {
+				return fmt.Errorf("--duration must be between 1m and 24h")
+			}
+			if d%time.Minute != 0 {
+				return fmt.Errorf("--duration must be in whole minutes")
+			}
+			minutes := int64(d / time.Minute)
 
-				minutes := int64(d / time.Minute)
-
+			return runIncidentCommand(cmd, args, writesIncidents, func(ctx *RunContext) error {
 				if _, err := ctx.Client.Incidents.Snooze(cmdContext(ctx.Cmd), &flashduty.SnoozeIncidentRequest{
 					IncidentIDs: ctx.Args,
 					Minutes:     minutes,
@@ -912,14 +1064,14 @@ func newIncidentReassignCmd() *cobra.Command {
 		Short: "Reassign an incident to new responders",
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				personIDs, err := parseIntSlice(person)
-				if err != nil {
-					return fmt.Errorf("invalid --person: %w", err)
-				}
-				if len(personIDs) == 0 {
-					return fmt.Errorf("--person is required")
-				}
+			personIDs, err := parseIntSlice(person)
+			if err != nil {
+				return fmt.Errorf("invalid --person: %w", err)
+			}
+			if len(personIDs) == 0 {
+				return fmt.Errorf("--person is required")
+			}
+			return runIncidentCommand(cmd, args, writesIncidents, func(ctx *RunContext) error {
 
 				// Preserve legacy wire: the hand-written SDK's ReassignIncidents
 				// hard-coded assigned_to.type = "assign". Leaving type empty would let
@@ -987,7 +1139,7 @@ personal channels, or a template.`,
 				}
 			}
 
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runIncidentCommand(cmd, args, writesIncidents, func(ctx *RunContext) error {
 				if _, err := ctx.Client.Incidents.ResponderAdd(cmdContext(ctx.Cmd), &flashduty.AddIncidentResponderRequest{
 					IncidentID: ctx.Args[0],
 					PersonIDs:  personIDs,
@@ -1078,7 +1230,7 @@ size, so a single-incident call reads the same as a hundred-incident one.`,
 				return fmt.Errorf("--comment-file content is %d characters, limit is 1024", n)
 			}
 
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runIncidentCommand(cmd, args, writesIncidents, func(ctx *RunContext) error {
 				req := &flashduty.CommentIncidentRequest{
 					IncidentIDs: ctx.Args,
 					Comment:     comment,
@@ -1421,8 +1573,8 @@ unless --force is provided. The command accepts up to 100 incident IDs.`,
 			if err := validateIncidentIDBatch(args); err != nil {
 				return err
 			}
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if !confirmAction(ctx.Cmd, fmt.Sprintf("Are you sure you want to remove %d incident(s)?", len(ctx.Args))) {
+			return runIncidentCommand(cmd, args, writesIncidents, func(ctx *RunContext) error {
+				if !confirmAction(ctx.Cmd, resolvedPrompt(ctx, fmt.Sprintf("Are you sure you want to remove %d incident(s)?", len(ctx.Args)))) {
 					_, _ = fmt.Fprintln(ctx.Writer, "Aborted.")
 					return nil
 				}
@@ -1484,7 +1636,7 @@ invite historical responders selected by FlashDuty.`,
 			if err != nil {
 				return fmt.Errorf("invalid --member: %w", err)
 			}
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runIncidentCommand(cmd, args, writesIncidents, func(ctx *RunContext) error {
 				resolvedIntegrationID, err := resolveWarRoomIntegrationID(ctx)
 				if err != nil {
 					return err
@@ -1547,7 +1699,7 @@ as get, delete, and add-member.`, "Incidents", "WarRoomList"),
   flashduty incident war-room list inc_123 --integration 42`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runIncidentCommand(cmd, args, readsIncidents, func(ctx *RunContext) error {
 				result, _, err := ctx.Client.Incidents.WarRoomList(cmdContext(ctx.Cmd), &flashduty.ListWarRoomsRequest{
 					IncidentID:    ctx.Args[0],
 					IntegrationID: integrationID,
@@ -1619,8 +1771,8 @@ integration ID.`,
   flashduty incident war-room delete inc_123 --integration 42 --force`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if !confirmAction(ctx.Cmd, fmt.Sprintf("Are you sure you want to delete the war room for incident %s?", ctx.Args[0])) {
+			return runIncidentCommand(cmd, args, writesIncidents, func(ctx *RunContext) error {
+				if !confirmAction(ctx.Cmd, resolvedPrompt(ctx, fmt.Sprintf("Are you sure you want to delete the war room for incident %s?", ctx.Args[0]))) {
 					_, _ = fmt.Fprintln(ctx.Writer, "Aborted.")
 					return nil
 				}
@@ -1699,7 +1851,7 @@ This is a read-only preview of the users FlashDuty would add when
   flashduty incident war-room create inc_123 --add-observers`,
 		Args: requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runIncidentCommand(cmd, args, readsIncidents, func(ctx *RunContext) error {
 				result, _, err := ctx.Client.Incidents.ReadGetWarRoomDefaultObservers(cmdContext(ctx.Cmd), &flashduty.GetWarRoomDefaultObserversRequest{
 					IncidentID: ctx.Args[0],
 				})
@@ -1752,7 +1904,7 @@ func newIncidentFeedCmd() *cobra.Command {
 		Long:  curatedLong("View the paginated feed (timeline entries) for an incident.", "Incidents", "Feed"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
+			return runIncidentCommand(cmd, args, readsIncidents, func(ctx *RunContext) error {
 				feedReq := &flashduty.ListIncidentFeedRequest{IncidentID: ctx.Args[0]}
 				feedReq.Page = page
 				feedReq.Limit = limit
@@ -1853,21 +2005,14 @@ func newIncidentDetailCmd() *cobra.Command {
 		Long:  curatedLong("View full incident detail, including the AI summary, root cause, and resolution.", "Incidents", "Info"),
 		Args:  requireArgs("incident_id"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCommand(cmd, args, func(ctx *RunContext) error {
-				if err := checkFieldsFlag(ctx, fields); err != nil {
-					return err
-				}
-
-				fullID, candidates, err := resolveIncidentArg(ctx, ctx.Args[0])
-				if err != nil {
-					return err
-				}
-				if len(candidates) > 0 {
-					return ambiguousShortIDError(ctx.Args[0], candidates)
-				}
+			// Checked before the short-id lookup so a flag error sends no request.
+			if err := checkFieldsFlag(&RunContext{Cmd: cmd, Format: currentOutputFormat()}, fields); err != nil {
+				return err
+			}
+			return runIncidentCommand(cmd, args, readsIncidents, func(ctx *RunContext) error {
 
 				result, _, err := ctx.Client.Incidents.Info(cmdContext(ctx.Cmd), &flashduty.IncidentInfoRequest{
-					IncidentID: fullID,
+					IncidentID: ctx.Args[0],
 				})
 				if err != nil {
 					return err

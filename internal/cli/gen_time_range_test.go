@@ -199,6 +199,24 @@ func TestCommandTimeRangeMappings(t *testing.T) {
 	}
 }
 
+// TestCommandTimeRangeWithShortIncidentID: a generated incident command with
+// both an incident id and a window resolves the short id and writes the
+// window in the same request.
+func TestCommandTimeRangeWithShortIncidentID(t *testing.T) {
+	saveAndResetGlobals(t)
+	paths, bodies := shortIDStub(t, incidentItem(testFullID, testShortID, "High error rate"))
+	if _, err := execCommand("incident", "sdp-request-list", "--incident-id", testShortID, "--since", rangeSince, "--until", rangeUntil); err != nil {
+		t.Fatal(err)
+	}
+	if len(*paths) != 2 || (*paths)[0] != "/incident/list" || (*paths)[1] != "/incident/sdp/request/list" {
+		t.Fatalf("paths = %v, want /incident/list then /incident/sdp/request/list", *paths)
+	}
+	body := (*bodies)[1]
+	if body["incident_id"] != testFullID || body["start_time"] != float64(rangeStartS) || body["end_time"] != float64(rangeEndS) {
+		t.Fatalf("body = %v, want resolved incident_id and the window", body)
+	}
+}
+
 // TestCommandInsightIncidentExportRange covers the curated export, which
 // shares the generated verbs' window flags.
 func TestCommandInsightIncidentExportRange(t *testing.T) {
