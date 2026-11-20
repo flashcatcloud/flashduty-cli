@@ -10,6 +10,21 @@ import (
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
 )
 
+// channelIDsFlag registers --channel-ids, the one spelling every
+// channel-filtering command uses (the API field is channel_ids). Each name in
+// deprecated is registered on the same flag value, so it behaves exactly like
+// --channel-ids, stays out of help and cards, and prints a notice naming
+// --channel-ids when used.
+func channelIDsFlag(cmd *cobra.Command, dst *[]int64, deprecated ...string) {
+	fs := cmd.Flags()
+	fs.Int64SliceVar(dst, "channel-ids", nil, "Filter by channel ID(s) (repeatable or comma-separated)")
+	value := fs.Lookup("channel-ids").Value
+	for _, name := range deprecated {
+		fs.Var(value, name, "Deprecated: use --channel-ids")
+		_ = fs.MarkDeprecated(name, "use --channel-ids instead")
+	}
+}
+
 func newChannelCmd() *cobra.Command {
 	cmd := newGroupCmd("channel", "Manage channels")
 	cmd.AddCommand(newChannelListCmd())
@@ -102,7 +117,7 @@ func newChannelListCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Case-insensitive substring of the channel name or description, server-side")
 	cmd.Flags().StringVar(&channelName, "channel-name", "", "Exact channel name, server-side")
-	cmd.Flags().Int64SliceVar(&channelIDs, "channel-ids", nil, "Filter by channel ID(s) (repeatable or comma-separated)")
+	channelIDsFlag(cmd, &channelIDs)
 	cmd.Flags().BoolVar(&isMyTeam, "is-my-team", false, "Only channels owned by your teams (exclusive with --is-my-starred)")
 	cmd.Flags().BoolVar(&isMyStarred, "is-my-starred", false, "Only channels you starred (exclusive with --is-my-team)")
 	cmd.Flags().BoolVar(&isMyManaged, "is-my-managed", false, "Only channels you manage")

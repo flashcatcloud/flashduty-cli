@@ -346,6 +346,7 @@ Export team insight
 
 ### top-alerts
 Query top alert sources by label
+- `--channel-ids` int64Slice
 - `--label` string
 - `--limit` int
 - `--since` string

@@ -28,7 +28,6 @@ import (
 var curatedFieldRoutes = map[string]map[string]string{
 	"alert list": {
 		"alert_severity":   "--severity",
-		"channel_ids":      "--channel",
 		"integration_ids":  "--integration",
 		"start_time":       "--since",
 		"end_time":         "--until",
@@ -42,7 +41,6 @@ var curatedFieldRoutes = map[string]map[string]string{
 	},
 	"alert-event list": {
 		"severities":        "--severity",
-		"channel_ids":       "--channel",
 		"integration_ids":   "--integration",
 		"integration_types": "--integration-type",
 		"start_time":        "--since",
@@ -68,7 +66,6 @@ var curatedFieldRoutes = map[string]map[string]string{
 		"start_time":      "--since",
 		"end_time":        "--until",
 		"p":               "--page",
-		"channel_ids":     "--channel",
 		"integration_ids": "--integration",
 		"integration_id":  "omit: deprecated single-value alias of integration_ids, which --integration sets",
 		"data_source_id":  "omit: deprecated single-value alias of integration_ids, which --integration sets",
@@ -94,7 +91,6 @@ var curatedFieldRoutes = map[string]map[string]string{
 		"start_time":        "--since",
 		"end_time":          "--until",
 		"p":                 "--page",
-		"channel_ids":       "--channel",
 		"incident_severity": "--severity",
 		"search_after_ctx":  "omit: pagination cursor; the command pages with --page",
 	},

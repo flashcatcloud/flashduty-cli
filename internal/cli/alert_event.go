@@ -17,9 +17,10 @@ func newAlertEventCmd() *cobra.Command {
 }
 
 func newAlertEventListCmd() *cobra.Command {
-	var severity, channel, integration, integrationType, since, until, fields string
+	var severity, integration, integrationType, since, until, fields string
 	var limit, page int
 	var asc bool
+	var channelIDs []int64
 
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -43,18 +44,11 @@ func newAlertEventListCmd() *cobra.Command {
 				input.Limit = limit
 				input.Page = page
 				input.Asc = asc
+				input.ChannelIDs = channelIDs
 
 				if severity != "" {
 					// go-flashduty takes severities as a comma-separated string.
 					input.Severities = strings.Join(parseStringSlice(severity), ",")
-				}
-
-				if channel != "" {
-					channelIDs, err := parseIntSlice(channel)
-					if err != nil {
-						return fmt.Errorf("invalid --channel: %w", err)
-					}
-					input.ChannelIDs = channelIDs
 				}
 
 				if integration != "" {
@@ -97,7 +91,7 @@ func newAlertEventListCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&severity, "severity", "", "Filter: Critical,Warning,Info (comma-separated)")
-	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
+	channelIDsFlag(cmd, &channelIDs, "channel")
 	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().StringVar(&integration, "integration", "", "Comma-separated integration IDs")
 	cmd.Flags().StringVar(&integrationType, "integration-type", "", "Comma-separated integration types (plugin keys, e.g. AliCloud,Prometheus) — not integration IDs; use --integration for that")

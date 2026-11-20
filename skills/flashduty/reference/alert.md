@@ -35,7 +35,7 @@ flashduty alert events <alert-id> --output-format toon
 # 4. view state transitions (mute/severity changes/operator actions)
 flashduty alert feed <alert-id> --output-format toon
 # 5. for a time-window view across alerts, use alert-event list
-flashduty alert-event list --channel <channel-id> --since 1h --limit 30 --output-format toon
+flashduty alert-event list --channel-ids <channel-id> --since 1h --limit 30 --output-format toon
 ```
 
 In json/toon mode `alert-event list` prints full event records; pass `--fields event_id,alert_id,event_severity,event_status,event_time,title` to keep only those columns.
@@ -100,7 +100,7 @@ List alerts
 - `--alert-keys` string
 - `--asc` bool
 - `--by-updated-at` bool
-- `--channel` string
+- `--channel-ids` int64Slice
 - `--fields` string
 - `--integration` string
 - `--limit` int
@@ -221,7 +221,7 @@ pipeline rule is not, and a typo just renders `<no value>` into the title.
 - **All alert verbs are positional except `list` and the two-ID `merge` flag.** Every verb with `<alert-id>` in its `use` form takes that ID as the first bare argument — do NOT pass `--alert-id`. The single exception: `merge` takes the first alert ID positionally AND requires `--incident-id` as a flag (two different IDs, different roles).
 - **`alert get` vs `alert info`, `alert events` vs `alert-event list`:** both pairs exist; prefer `get`/`events` (shorter, no extra flag); `info`/`event-list` accept `--alert-id` as a flag override for scripting.
 - **No server-side title filter on `list`.** To search by title, use `--json` and pipe to `jq`: `flashduty alert list --json | jq '.[] | select(.title | test("disk";"i"))'`
-- **`list`'s structured output has no `total`/page metadata** — its `--json`/`toon` response is a bare TOP-LEVEL array (see the `list` fence entry above), not a `{items, total}` wrapper. To count matches, project the narrowest field with `--fields` and count elements, or use a wrapper-style verb whose fence shows `total` (e.g. `list-by-ids`). Don't paginate page 1/2/3... just to count alerts — narrow the query instead (`--active`, `--recovered`, `--severity`, `--channel`, `--since`).
+- **`list`'s structured output has no `total`/page metadata** — its `--json`/`toon` response is a bare TOP-LEVEL array (see the `list` fence entry above), not a `{items, total}` wrapper. To count matches, project the narrowest field with `--fields` and count elements, or use a wrapper-style verb whose fence shows `total` (e.g. `list-by-ids`). Don't paginate page 1/2/3... just to count alerts — narrow the query instead (`--active`, `--recovered`, `--severity`, `--channel-ids`, `--since`).
 - **Use `--fields` when hunting IDs, not full rows.** If the task is "find alert IDs / titles / channels / severities", project only those fields first, then drill into one alert with `get` / `events`. Dumping every field for 100 alerts wastes tokens and hides the one row you need.
 - **`list` time window cap is 31 days**; `--limit` max is 100. For broader queries use `insight` domain.
 - **`pipeline-upsert` fully replaces** the existing pipeline — always fetch current config with `pipeline-info` first and include unchanged rules in the new body.
@@ -231,7 +231,7 @@ pipeline rule is not, and a typo just renders `<no value>` into the title.
 
 ```bash
 # Find active Critical alerts in a specific channel and view the noisiest one
-flashduty alert list --severity Critical --active --channel 98765 --since 2h --output-format toon
+flashduty alert list --severity Critical --active --channel-ids 98765 --since 2h --output-format toon
 flashduty alert get <alert-id> --output-format toon
 flashduty alert events <alert-id> --output-format toon
 ```

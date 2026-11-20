@@ -27,7 +27,7 @@ flashduty change list --since 48h --integration <integration-id> --query "deploy
 ### list
 List changes
 - `--asc` bool
-- `--channel` string
+- `--channel-ids` int64Slice
 - `--filters` string
 - `--include-events` bool
 - `--integration` string
@@ -44,7 +44,7 @@ List changes
 ## Key concepts
 
 - **Correlation is heuristic, not relational.** A change is "related" to an incident when their `labels` overlap and their timestamps are close — there is no `incident_id` on a change. Judge the overlap yourself; do not claim a causal link the data doesn't support.
-- **`--integration` / `--channel`** scope to the source that emitted the change; **`--since` / `--until`** bound the window (a non-negative duration like `24h`, a future offset like `+24h`, `now`, a date/datetime, or Unix seconds — negative durations like `-1h` are rejected).
+- **`--integration` / `--channel-ids`** scope to the source that emitted the change; **`--since` / `--until`** bound the window (a non-negative duration like `24h`, a future offset like `+24h`, `now`, a date/datetime, or Unix seconds — negative durations like `-1h` are rejected).
 
 ## Gotchas
 

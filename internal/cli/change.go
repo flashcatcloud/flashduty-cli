@@ -17,7 +17,7 @@ func newChangeCmd() *cobra.Command {
 }
 
 func newChangeListCmd() *cobra.Command {
-	var channel string
+	var channelIDs []int64
 	var since, until string
 	var limit, page int
 	var query, integration, filters string
@@ -54,14 +54,8 @@ func newChangeListCmd() *cobra.Command {
 				}
 				input.Limit = reqLimit
 				input.Page = reqPage
+				input.ChannelIDs = channelIDs
 
-				if channel != "" {
-					channelIDs, err := parseIntSlice(channel)
-					if err != nil {
-						return fmt.Errorf("invalid --channel: %w", err)
-					}
-					input.ChannelIDs = channelIDs
-				}
 				if integration != "" {
 					integrationIDs, err := parseIntSlice(integration)
 					if err != nil {
@@ -97,7 +91,7 @@ func newChangeListCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
+	channelIDsFlag(cmd, &channelIDs, "channel")
 	cmd.Flags().StringVar(&query, "query", "", "Free-text/regex search over change fields")
 	cmd.Flags().StringVar(&integration, "integration", "", "Comma-separated reporting integration IDs")
 	cmd.Flags().StringVar(&filters, "filters", "", `Structured filters ANDed onto the query, as a JSON array of {"key","oper","vals"} (oper IN or NOTIN; key like labels.env). Keys starting with "incident" are ignored`)
