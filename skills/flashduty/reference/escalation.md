@@ -102,7 +102,10 @@ Update escalation rule
 - **`layers`** (required via `--data` on create/update): each layer needs
   `target` (with `person_ids` / `team_ids` / `schedule_to_role_ids` /
   `emails` + `by`, OR `webhooks`) and optionally `notify_step`, `max_times`,
-  `escalate_window`, `force_escalate`.
+  `escalate_window`, `force_escalate`. To look up IM group `chat_id` values
+  for a DingTalk / Feishu / Slack / Teams integration, use
+  `flashduty datasource {dingtalk,feishu,slack,teams}-self-chat-list <data-source-id> --output-format toon`
+  (see `reference/integration.md`).
 - **`filters`** (optional) scope the rule to matching incidents — read
   `reference/filters.md` BEFORE composing them. Escalation filters match
   against the *incident* (its keys include `dedup_key`; alert-event keys like

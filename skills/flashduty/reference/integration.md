@@ -196,3 +196,50 @@ Update dedicated integration
 - response: same shape as `integration-info <integration-id>` above
 
 <!-- GENERATED:channel[integration] END -->
+
+## IM group chats (`datasource`)
+
+To look up IM group `chat_id` / channel IDs for an IM integration (for example when configuring escalation rule group notifications), find the integration's `data_source_id` (via `flashduty datasource im-war-room-enabled-list` or `flashduty integration list`) and run the matching `*-self-chat-list` command:
+
+```bash
+flashduty datasource dingtalk-self-chat-list <data-source-id> --output-format toon
+flashduty datasource feishu-self-chat-list <data-source-id> --output-format toon
+flashduty datasource slack-self-chat-list <data-source-id> --output-format toon
+flashduty datasource teams-self-chat-list <data-source-id> --output-format toon
+```
+
+<!-- GENERATED:datasource START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
+
+### dingtalk-self-chat-list <data-source-id>
+List DingTalk chats for an IM integration
+- `<data-source-id>` (positional, required) int64 — DingTalk IM integration ID (integration_id / data_source_id); obtain it from 'flashduty datasource im-war-room-enabled-list' or 'flashduty integration list'.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: chat_id (string); name (string); origin (string)
+
+### feishu-self-chat-list <data-source-id>
+List Feishu chats for an IM integration
+- `<data-source-id>` (positional, required) int64 — Feishu IM integration ID (integration_id / data_source_id); obtain it from 'flashduty datasource im-war-room-enabled-list' or 'flashduty integration list'.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: chat_id (string); name (string); description (string); external (boolean); origin (string)
+
+### im-person-try-link <integration-id>
+Attempt IM person linking
+- `<integration-id>` (positional, required) int64 — IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'.
+- response: single object (`data` unwrapped to the top level) — fields: new_linked_person_ids (array<integer>); no_contact_count (integer); unmatched_count (integer)
+
+### im-war-room-enabled-list
+List war-room-enabled IM integrations
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: account_id (integer); category (string); created_at (string); creator_id (integer); data_source_id (integer); description (string); exclusive_data_source_id (integer); integration_id (integer); integration_key (string); last_source_time (string); last_time (string); name (string); no_editable (boolean); plugin_id (integer); plugin_type (string); plugin_type_name (string); ref_id (string); settings (object); status (string); team_id (integer); updated_at (string); updated_by (integer)
+
+### slack-self-chat-list <data-source-id>
+List Slack channels for an IM integration
+- `<data-source-id>` (positional, required) int64 — Slack IM integration ID (integration_id / data_source_id).
+- `--force-refresh` bool — Bypass server-side channel cache.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: id (string); name (string); is_private (boolean); is_archived (boolean); origin (string)
+
+### teams-self-chat-list <data-source-id>
+List Microsoft Teams channels for an IM integration
+- `<data-source-id>` (positional, required) int64 — Microsoft Teams IM integration ID (integration_id / data_source_id).
+- `--force-refresh` bool — Bypass server-side channel cache.
+- `--team-id` string — Optional Microsoft Teams team ID filter.
+- response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: team_id (string); team_name (string); channels (array<object>)
+
+<!-- GENERATED:datasource END -->
