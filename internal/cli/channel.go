@@ -3,6 +3,7 @@ package cli
 import (
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
@@ -17,12 +18,47 @@ import (
 // --channel-ids when used.
 func channelIDsFlag(cmd *cobra.Command, dst *[]int64, deprecated ...string) {
 	fs := cmd.Flags()
-	fs.Int64SliceVar(dst, "channel-ids", nil, "Filter by channel ID(s) (repeatable or comma-separated)")
-	value := fs.Lookup("channel-ids").Value
+	value := &channelIDsValue{dst}
+	fs.Var(value, "channel-ids", "Filter by channel ID(s) (repeatable or comma-separated)")
 	for _, name := range deprecated {
-		fs.Var(value, name, "Deprecated: use --channel-ids")
+		fs.Var(value, name, "")
 		_ = fs.MarkDeprecated(name, "use --channel-ids instead")
 	}
+}
+
+// channelIDsValue parses with parseIntSlice rather than pflag's int64 slice:
+// base-10 IDs, with spaces around them and empty elements ignored, so an
+// empty value adds nothing. That is what the string --channel flag accepted,
+// and scripts still pass it. Repeated uses accumulate.
+type channelIDsValue struct{ ids *[]int64 }
+
+func (v *channelIDsValue) Set(s string) error {
+	ids, err := parseIntSlice(s)
+	if err != nil {
+		return err
+	}
+	*v.ids = append(*v.ids, ids...)
+	return nil
+}
+
+func (v *channelIDsValue) Type() string { return "int64Slice" }
+
+func (v *channelIDsValue) String() string { return strings.Join(v.GetSlice(), ",") }
+
+// Append, Replace and GetSlice implement pflag.SliceValue.
+func (v *channelIDsValue) Append(s string) error { return v.Set(s) }
+
+func (v *channelIDsValue) Replace(vals []string) error {
+	*v.ids = nil
+	return v.Set(strings.Join(vals, ","))
+}
+
+func (v *channelIDsValue) GetSlice() []string {
+	out := make([]string, len(*v.ids))
+	for i, id := range *v.ids {
+		out[i] = strconv.FormatInt(id, 10)
+	}
+	return out
 }
 
 func newChannelCmd() *cobra.Command {

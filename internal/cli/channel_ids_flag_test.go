@@ -63,3 +63,30 @@ func TestChannelIDsFlagSpellings(t *testing.T) {
 		})
 	}
 }
+
+// TestChannelIDsFlagInputForms: the value takes the forms the string
+// --channel flag took (spaces, empty elements, an empty value as no filter,
+// base-10 IDs) and accumulates repeated uses.
+func TestChannelIDsFlagInputForms(t *testing.T) {
+	cases := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--channel-ids", "100, 200,"}, "[100 200]"},
+		{[]string{"--channel-ids", "100", "--channel-ids", "200"}, "[100 200]"},
+		{[]string{"--channel-ids", "010"}, "[10]"},
+		{[]string{"--channel", ""}, "<nil>"},
+	}
+	for _, tc := range cases {
+		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
+			saveAndResetGlobals(t)
+			stub := newGFStub(t)
+			if _, err := execCommand(append([]string{"change", "list"}, tc.args...)...); err != nil {
+				t.Fatalf("change list %v: %v", tc.args, err)
+			}
+			if got := fmt.Sprint(stub.lastBody["channel_ids"]); got != tc.want {
+				t.Fatalf("channel_ids = %s, want %s", got, tc.want)
+			}
+		})
+	}
+}
