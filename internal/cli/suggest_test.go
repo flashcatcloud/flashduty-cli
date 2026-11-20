@@ -115,6 +115,11 @@ func TestUnknownCommandSuggestions(t *testing.T) {
 			notWant: []string{"silence"},
 		},
 		{
+			name: "view as a single-record verb",
+			args: []string{"incident", "view", "1"},
+			want: []string{"\tflashduty incident get\n", "\tflashduty incident info\n"},
+		},
+		{
 			name: "synonym inside a hyphenated verb",
 			args: []string{"channel", "escalate-rule-get", "1"},
 			want: []string{"\tflashduty channel escalate-rule-info\n"},
@@ -130,9 +135,26 @@ func TestUnknownCommandSuggestions(t *testing.T) {
 			want: []string{`unknown command "lsit" for "flashduty alert"`},
 		},
 		{
+			name:    "noun form of a verb in the tree",
+			args:    []string{"escalation", "list"},
+			want:    []string{`unknown command "escalation" for "flashduty"`, "\tflashduty channel escalate-rule-list\n"},
+			notWant: []string{"\tflashduty change "},
+		},
+		{
+			name: "noun form inside a hyphenated token",
+			args: []string{"escalation-rule", "list"},
+			want: []string{"\tflashduty channel escalate-rule-list\n"},
+		},
+		{
+			name:    "short shared prefix is not a match",
+			args:    []string{"chan"},
+			want:    []string{`unknown command "chan" for "flashduty"`},
+			notWant: []string{"\tflashduty change "},
+		},
+		{
 			name:    "no match lists the level's commands",
-			args:    []string{"escalationz"},
-			want:    []string{`unknown command "escalationz" for "flashduty"`, "Available commands: "},
+			args:    []string{"frobnicate"},
+			want:    []string{`unknown command "frobnicate" for "flashduty"`, "Available commands: "},
 			notWant: []string{"Did you mean"},
 		},
 	}
