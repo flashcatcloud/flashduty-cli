@@ -23,8 +23,9 @@ func newAlertCmd() *cobra.Command {
 }
 
 func newAlertListCmd() *cobra.Command {
-	var severity, channel, integration, since, until, fields, alertIDs, alertKeys string
+	var severity, integration, since, until, fields, alertIDs, alertKeys string
 	var active, recovered, muted, asc, byUpdatedAt bool
+	var channelIDs []int64
 	var limit, page int
 
 	cmd := &cobra.Command{
@@ -57,6 +58,7 @@ func newAlertListCmd() *cobra.Command {
 				req.ByUpdatedAt = byUpdatedAt
 				req.AlertIDs = parseStringSlice(alertIDs)
 				req.AlertKeys = parseStringSlice(alertKeys)
+				req.ChannelIDs = channelIDs
 
 				// Preserve legacy semantics: --active sends is_active=true,
 				// --recovered sends is_active=false, neither omits the filter.
@@ -68,14 +70,6 @@ func newAlertListCmd() *cobra.Command {
 
 				if muted {
 					req.EverMuted = flashduty.Bool(true)
-				}
-
-				if channel != "" {
-					channelIDs, err := parseIntSlice(channel)
-					if err != nil {
-						return fmt.Errorf("invalid --channel: %w", err)
-					}
-					req.ChannelIDs = channelIDs
 				}
 
 				if integration != "" {
@@ -118,7 +112,7 @@ func newAlertListCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&active, "active", false, "Show active only")
 	registerEnumFlag(cmd, "severity", severityEnum...)
 	cmd.Flags().BoolVar(&recovered, "recovered", false, "Show recovered only")
-	cmd.Flags().StringVar(&channel, "channel", "", "Comma-separated channel IDs")
+	channelIDsFlag(cmd, &channelIDs, "channel")
 	cmd.Flags().StringVar(&integration, "integration", "", "Comma-separated integration IDs")
 	cmd.Flags().BoolVar(&muted, "muted", false, "Show ever-muted only")
 	cmd.Flags().StringVar(&alertIDs, "alert-ids", "", "Comma-separated alert IDs to return")

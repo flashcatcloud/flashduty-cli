@@ -19,7 +19,7 @@ func TestUnknownFlagListsCandidates(t *testing.T) {
 			args: []string{"alert", "list", "--channel-id", "1"},
 			want: []string{
 				`unknown flag: --channel-id for "flashduty alert list"`,
-				"Did you mean this?\n\t--channel\n",
+				"Did you mean this?\n\t--channel-ids\n",
 				"Flags: --active, --alert-ids,",
 				"Global flags: --base-url, --json, --no-trunc, --output-format",
 			},
@@ -43,13 +43,13 @@ func TestUnknownFlagListsCandidates(t *testing.T) {
 		{
 			name:    "hidden flags are not offered",
 			args:    []string{"incident", "list", "--channel-idz", "1"},
-			want:    []string{"\t--channel\n"},
+			want:    []string{"\t--channel-ids\n"},
 			notWant: []string{"--channel-id\n", "--app-key"},
 		},
 		{
 			name:    "a command's own --fields is offered as its flag",
 			args:    []string{"incident", "list", "--field", "x"},
-			want:    []string{"Did you mean this?\n\t--fields\n", "--channel, --closer-ids", "--asc, --channel", "Global flags: --base-url, --json, --no-trunc, --output-format"},
+			want:    []string{"Did you mean this?\n\t--fields\n", "--channel-ids, --closer-ids", "--asc, --channel-ids", "Global flags: --base-url, --json, --no-trunc, --output-format"},
 			notWant: []string{"Global flags: --base-url, --fields"},
 		},
 		{

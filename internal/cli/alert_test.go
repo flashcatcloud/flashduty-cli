@@ -67,7 +67,7 @@ func TestCommandAlertListNoStatusFilterOmitsIsActive(t *testing.T) {
 
 // TestCommandAlertListIntegrationFlagReachesWire guards --integration on
 // `alert list`: a comma-separated value must parse via the shared
-// parseIntSlice helper (same as --channel) and forward as integration_ids on
+// parseIntSlice helper and forward as integration_ids on
 // /alert/list.
 func TestCommandAlertListIntegrationFlagReachesWire(t *testing.T) {
 	saveAndResetGlobals(t)

@@ -3,12 +3,63 @@ package cli
 import (
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/flashcatcloud/go-flashduty"
 	"github.com/spf13/cobra"
 
 	"github.com/flashcatcloud/flashduty-cli/internal/output"
 )
+
+// channelIDsFlag registers --channel-ids, the one spelling every
+// channel-filtering command uses (the API field is channel_ids). Each name in
+// deprecated is registered on the same flag value, so it behaves exactly like
+// --channel-ids, stays out of help and cards, and prints a notice naming
+// --channel-ids when used.
+func channelIDsFlag(cmd *cobra.Command, dst *[]int64, deprecated ...string) {
+	fs := cmd.Flags()
+	value := &channelIDsValue{dst}
+	fs.Var(value, "channel-ids", "Filter by channel ID(s) (repeatable or comma-separated)")
+	for _, name := range deprecated {
+		fs.Var(value, name, "")
+		_ = fs.MarkDeprecated(name, "use --channel-ids instead")
+	}
+}
+
+// channelIDsValue parses with parseIntSlice rather than pflag's int64 slice:
+// base-10 IDs, with spaces around them and empty elements ignored, so an
+// empty value adds nothing. That is what the string --channel flag accepted,
+// and scripts still pass it. Repeated uses accumulate.
+type channelIDsValue struct{ ids *[]int64 }
+
+func (v *channelIDsValue) Set(s string) error {
+	ids, err := parseIntSlice(s)
+	if err != nil {
+		return err
+	}
+	*v.ids = append(*v.ids, ids...)
+	return nil
+}
+
+func (v *channelIDsValue) Type() string { return "int64Slice" }
+
+func (v *channelIDsValue) String() string { return strings.Join(v.GetSlice(), ",") }
+
+// Append, Replace and GetSlice implement pflag.SliceValue.
+func (v *channelIDsValue) Append(s string) error { return v.Set(s) }
+
+func (v *channelIDsValue) Replace(vals []string) error {
+	*v.ids = nil
+	return v.Set(strings.Join(vals, ","))
+}
+
+func (v *channelIDsValue) GetSlice() []string {
+	out := make([]string, len(*v.ids))
+	for i, id := range *v.ids {
+		out[i] = strconv.FormatInt(id, 10)
+	}
+	return out
+}
 
 func newChannelCmd() *cobra.Command {
 	cmd := newGroupCmd("channel", "Manage channels")
@@ -102,7 +153,7 @@ func newChannelListCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&name, "name", "", "Case-insensitive substring of the channel name or description, server-side")
 	cmd.Flags().StringVar(&channelName, "channel-name", "", "Exact channel name, server-side")
-	cmd.Flags().Int64SliceVar(&channelIDs, "channel-ids", nil, "Filter by channel ID(s) (repeatable or comma-separated)")
+	channelIDsFlag(cmd, &channelIDs)
 	cmd.Flags().BoolVar(&isMyTeam, "is-my-team", false, "Only channels owned by your teams (exclusive with --is-my-starred)")
 	cmd.Flags().BoolVar(&isMyStarred, "is-my-starred", false, "Only channels you starred (exclusive with --is-my-team)")
 	cmd.Flags().BoolVar(&isMyManaged, "is-my-managed", false, "Only channels you manage")

@@ -248,7 +248,7 @@ Get incident detail
 List incidents
 - `--acker-ids` string
 - `--asc` bool
-- `--channel` string
+- `--channel-ids` int64Slice
 - `--closer-ids` string
 - `--creator-ids` string
 - `--ever-muted` bool

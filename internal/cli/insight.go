@@ -30,6 +30,7 @@ func newInsightCmd() *cobra.Command {
 func newInsightTopAlertsCmd() *cobra.Command {
 	var label, since, until string
 	var limit int
+	var channelIDs []int64
 
 	cmd := &cobra.Command{
 		Use:   "top-alerts",
@@ -43,10 +44,11 @@ func newInsightTopAlertsCmd() *cobra.Command {
 				}
 
 				result, _, err := ctx.Client.Analytics.TopkAlertsByLabel(cmdContext(ctx.Cmd), &flashduty.InsightTopkAlertByLabelRequest{
-					StartTime: startTime,
-					EndTime:   endTime,
-					Label:     label,
-					K:         int64(limit),
+					StartTime:  startTime,
+					EndTime:    endTime,
+					Label:      label,
+					K:          int64(limit),
+					ChannelIDs: channelIDs,
 				})
 				if err != nil {
 					return err
@@ -73,6 +75,7 @@ func newInsightTopAlertsCmd() *cobra.Command {
 	cmd.Flags().StringVar(&since, "since", "7d", "Start time")
 	cmd.Flags().StringVar(&until, "until", "now", "End time")
 	cmd.Flags().IntVar(&limit, "limit", 10, "Top K results")
+	channelIDsFlag(cmd, &channelIDs)
 	_ = cmd.MarkFlagRequired("label")
 
 	return cmd
