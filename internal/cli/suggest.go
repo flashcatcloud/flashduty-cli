@@ -23,7 +23,7 @@ const maxTreeSuggestions = 8
 // across command groups: curated verbs say get/detail, path-derived generated
 // verbs say info/infos. A guessed spelling is swapped for the others when
 // looking for a sibling.
-var singleRecordVerbs = []string{"get", "info", "infos", "detail", "show", "describe"}
+var singleRecordVerbs = []string{"get", "info", "infos", "detail", "show", "view", "describe"}
 
 // flagErrorWithCandidates is the root FlagErrorFunc (cobra hands it to every
 // descendant). It extends pflag's unknown-flag error with the closest flag
@@ -96,9 +96,10 @@ func closeNames(name string, candidates []string) []string {
 // unknownCommandError reports token as an unknown subcommand of the group cmd.
 // Candidates come from, in order: cobra's sibling suggestions plus
 // single-record verb synonyms; failing those, every leaf in the whole tree
-// whose path contains token on hyphen-token boundaries (so `silence` finds
-// `channel silence-rule-list` and `monit-datasource` finds
-// `monit datasource-list`). The group's own subcommands are always listed.
+// whose path contains token's words in a row (so `silence` finds
+// `channel silence-rule-list`, `monit-datasource` finds `monit datasource-list`
+// and `escalation` finds `channel escalate-rule-list`). The group's own
+// subcommands are always listed.
 func unknownCommandError(cmd *cobra.Command, token string) error {
 	// Mirrors cobra's own default (see (*Command).findSuggestions): a group
 	// never sets this itself, so the zero value would otherwise disable the
@@ -165,11 +166,17 @@ func synonymSiblings(cmd *cobra.Command, token string) []string {
 	return out
 }
 
+// minStemLen is the shared prefix length at which two words count as forms of
+// the same word (escalation / escalate, integration / integrations); shorter
+// shared prefixes join unrelated words (change / channel).
+const minStemLen = 6
+
 // treeMatches returns the runnable leaves under root whose hyphen-joined path
-// contains token as a whole run of hyphen-tokens, shortest path first, capped
-// at maxTreeSuggestions; more is the number left out.
+// contains token as a run of hyphen-tokens, each word equal or sharing a
+// minStemLen prefix, shortest path first, capped at maxTreeSuggestions; more is
+// the number left out.
 func treeMatches(root *cobra.Command, token string) (paths []string, more int) {
-	needle := "-" + strings.ToLower(token) + "-"
+	needle := strings.Split(strings.ToLower(token), "-")
 	var walk func(c *cobra.Command, rel []string)
 	walk = func(c *cobra.Command, rel []string) {
 		for _, child := range c.Commands() {
@@ -181,7 +188,7 @@ func treeMatches(root *cobra.Command, token string) (paths []string, more int) {
 				walk(child, p)
 				continue
 			}
-			if strings.Contains("-"+strings.Join(p, "-")+"-", needle) {
+			if containsWordRun(strings.Split(strings.Join(p, "-"), "-"), needle) {
 				paths = append(paths, root.CommandPath()+" "+strings.Join(p, " "))
 			}
 		}
@@ -198,6 +205,28 @@ func treeMatches(root *cobra.Command, token string) (paths []string, more int) {
 		paths = paths[:maxTreeSuggestions]
 	}
 	return paths, more
+}
+
+// containsWordRun reports whether needle occurs as consecutive words of path,
+// comparing each pair with sameWord.
+func containsWordRun(path, needle []string) bool {
+	for i := 0; i+len(needle) <= len(path); i++ {
+		if slices.EqualFunc(path[i:i+len(needle)], needle, sameWord) {
+			return true
+		}
+	}
+	return false
+}
+
+func sameWord(a, b string) bool {
+	if a == b {
+		return true
+	}
+	n := 0
+	for n < len(a) && n < len(b) && a[n] == b[n] {
+		n++
+	}
+	return n >= minStemLen
 }
 
 // rejectUnknownSubcommand fails when args resolve to a command group (root
