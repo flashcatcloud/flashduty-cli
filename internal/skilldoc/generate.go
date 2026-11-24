@@ -408,10 +408,15 @@ var responseFieldRe = regexp.MustCompile(`^( *)- ([a-zA-Z0-9_.]+) \(([^)]*)\)`)
 
 // wrapperWireNames are the exact wire names cligen's own listEnvelope
 // (internal/cmd/cligen/main.go) treats as a paginated-list envelope field:
-// a sole array-typed sibling named items, docs, or list. Mirrored here as a
+// a sole array-typed sibling named items, docs, list, or environments. Mirrored here as a
 // sanity check, not a duplicate classifier — see the guard in
 // responseShapeLine below.
-var wrapperWireNames = map[string]bool{"items": true, "docs": true, "list": true}
+var wrapperWireNames = map[string]bool{"items": true, "docs": true, "list": true, "environments": true}
+
+// wrapperKeyRe pulls the row array's wire name out of cligen's list-envelope
+// header ("… rows are nested under environments[]; …"). `--json` keeps that
+// key as-is, so the card must name it rather than assume items.
+var wrapperKeyRe = regexp.MustCompile(`nested under ([a-z_]+)\[\]`)
 
 // respField is one parsed Response-fields bullet row.
 type respField struct{ name, typ string }
@@ -452,10 +457,14 @@ func responseShapeLine(long string) string {
 		return ""
 	}
 
-	wrapped := strings.Contains(header, "nested under items[]")
+	wrapKey := ""
+	if m := wrapperKeyRe.FindStringSubmatch(header); m != nil {
+		wrapKey = m[1]
+	}
+	wrapped := wrapKey != ""
 	fieldIndent := "  "
 	if wrapped {
-		fieldIndent = "    " // one level under the top-level "items" row
+		fieldIndent = "    " // one level under the top-level row array
 	}
 
 	// fields holds the row-level fields the summary's "fields:" list names
@@ -477,7 +486,7 @@ func responseShapeLine(long string) string {
 		switch {
 		case indent == fieldIndent:
 			fields = append(fields, respField{name, typ})
-		case wrapped && indent == "  " && !wrapperWireNames[name]:
+		case wrapped && indent == "  " && name != wrapKey:
 			siblings = append(siblings, respField{name, typ})
 		}
 	}
@@ -486,7 +495,7 @@ func responseShapeLine(long string) string {
 	}
 
 	// Safety net: this parser only ever recognizes the wrapped shape by the
-	// literal substring "nested under items[]" in the header (see the doc
+	// "nested under <key>[]" phrase in the header (see the doc
 	// comment above the const block). If cligen's wording for that header
 	// ever drifts without this parser being updated to match, `wrapped` goes
 	// false here even though the response really is a page wrapper — and the
@@ -504,8 +513,8 @@ func responseShapeLine(long string) string {
 	var shape, fieldsLabel string
 	switch {
 	case wrapped:
-		shape = fmt.Sprintf("`{items: [...]%s}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`)", siblingSuffix(siblings))
-		fieldsLabel = "items fields" // disambiguates row fields from the wrapper's own pagination siblings named above
+		shape = fmt.Sprintf("`{%[1]s: [...]%[2]s}` page wrapper — pipe `--json | jq '.%[1]s[]'` (NOT top-level `.[]`)", wrapKey, siblingSuffix(siblings))
+		fieldsLabel = wrapKey + " fields" // disambiguates row fields from the wrapper's own pagination siblings named above
 	case strings.Contains(header, "TOP-LEVEL array"):
 		shape = "TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`)"
 		fieldsLabel = "fields"

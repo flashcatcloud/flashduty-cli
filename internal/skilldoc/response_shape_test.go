@@ -205,6 +205,23 @@ func TestResponseShapeLine_ItemsWrappedNoSiblingsUnchanged(t *testing.T) {
 	}
 }
 
+// TestResponseShapeLine_WrapperKeyFromHeader covers a list envelope whose row
+// array is not named items: `--json` keeps the backend's key, so the card must
+// name that key in both the descriptor and the jq path.
+func TestResponseShapeLine_WrapperKeyFromHeader(t *testing.T) {
+	long := "List runners.\n\nResponse fields (`data` envelope is unwrapped — rows are nested under environments[]; pipe `jq '.environments[]'`, NOT `.data.environments[]`):\n" +
+		"  - environments (array<object>) (required) — Runners on this page.\n" +
+		"    - name (string) (required) — Runner name.\n" +
+		"    - labels (array<string>) (required) — Labels.\n" +
+		"  - latest_version (string) (required) — Latest version.\n" +
+		"  - total (integer) (required) — Total.\n"
+	got := responseShapeLine(long)
+	want := "- response: `{environments: [...], latest_version, total}` page wrapper — pipe `--json | jq '.environments[]'` (NOT top-level `.[]`) — environments fields: name (string); labels (array<string>)\n"
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 func TestResponseShapeLine_NoBlockIsEmpty(t *testing.T) {
 	if got := responseShapeLine(noResponseBlockLong); got != "" {
 		t.Errorf("command with no Response fields block must yield no response line, got:\n%s", got)
