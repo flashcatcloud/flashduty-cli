@@ -81,6 +81,59 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	return cmd
 }
 
+func genIntegrationsDatasourceImPersonLinkedListCmd() *cobra.Command {
+	var dataJSON string
+	var fDataSourceID int64
+	var fIntegrationID int64
+	cmd := &cobra.Command{
+		Use:   "im-person-linked-list",
+		Short: "List IM-linked persons",
+		Long: `List IM-linked persons.
+
+Return the person IDs already linked to the specified IM integration.
+
+API: POST /datasource/im/person-linked/list (datasourceImPersonLinkedList)
+
+Request fields:
+  --data-source-id int — Alias for 'integration_id' (legacy parameter name). Either 'integration_id' or 'data_source_id' must be provided.
+  --integration-id int — IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'. Either 'integration_id' or 'data_source_id' must be provided.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - person_ids (array<integer>) (required) — Unique person IDs currently bound to this IM integration's app.
+`,
+		Example: `  flashduty datasource im-person-linked-list --data '{"integration_id":6113996590131}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("data-source-id") {
+						body["data_source_id"] = fDataSourceID
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ListPersonLinkedRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Integrations.DatasourceImPersonLinkedList(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out, body, listDefaultsFor("Integrations", "DatasourceImPersonLinkedList"))
+			})
+		},
+	}
+	cmd.Flags().Int64Var(&fDataSourceID, "data-source-id", 0, "Alias for 'integration_id' (legacy parameter name). Either 'integration_id' or 'data_source_id' must be provided.")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'. Either 'integration_id' or 'data_source_id' must be provided.")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genIntegrationsDatasourceImPersonTryLinkCmd() *cobra.Command {
 	var dataJSON string
 	var fIntegrationID int64
@@ -97,9 +150,12 @@ Request fields:
   --integration-id int (required) — IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'.
 
 Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - already_linked_person_ids (array<integer>) — Person IDs that were already linked to this IM app before this call.
   - new_linked_person_ids (array<integer>) (required) — Person IDs linked to the IM app during this call. Empty when nobody was newly linked.
   - no_contact_count (integer) (required) — Unlinked members skipped because they have neither an email nor a phone number.
+  - no_contact_person_ids (array<integer>) — Unlinked person IDs skipped because they have neither a verified email nor a verified phone number.
   - unmatched_count (integer) (required) — Members with an email or phone that were looked up but not newly linked: not found on the IM platform, the IM account is already linked to another member, or the lookup failed for them.
+  - unmatched_person_ids (array<integer>) — Person IDs with verified contacts that were looked up during this call but not newly linked.
 `,
 		Args:    requireBodyFieldOrExactArg("integration_id", "integration-id"),
 		Example: `  flashduty datasource im-person-try-link --data '{"integration_id":6113996590131}'`,
@@ -1016,6 +1072,7 @@ func registerGeneratedIntegrations(root *cobra.Command) {
 	gAlert := genGroup(root, "alert", "On-call API")
 	genAddLeaf(gAlert, genIntegrationsAlertReadEmailPreviewCmd())
 	gDatasource := genGroup(root, "datasource", "On-call API")
+	genAddLeaf(gDatasource, genIntegrationsDatasourceImPersonLinkedListCmd())
 	genAddLeaf(gDatasource, genIntegrationsDatasourceImPersonTryLinkCmd())
 	gIntegration := genGroup(root, "integration", "On-call/Integrations API")
 	genAddLeaf(gIntegration, genIntegrationsIntegrationAPIReadInfoCmd())
