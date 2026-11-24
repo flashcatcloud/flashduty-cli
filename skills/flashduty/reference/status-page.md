@@ -164,6 +164,11 @@ Create status page draft
 - body-only (`--data`): draft (object) (required)
 - response: single object (`data` unwrapped to the top level) — fields: created_at (string); draft_id (string)
 
+### draft-info <draft-id>
+Get status page draft
+- `<draft-id>` (positional, required) string — Draft ID returned by 'POST /status-page/draft/create'.
+- response: single object (`data` unwrapped to the top level) — fields: change_id (integer); consumed_at (string); consumed_by (integer); consumed_change_id (integer); created_at (string); created_by (integer); draft (object); draft_id (string); page_id (integer); source (string); status (string); type (string)
+
 ### info <page-id>
 Get status page detail
 - `<page-id>` (positional, required) int64 — Status page ID.

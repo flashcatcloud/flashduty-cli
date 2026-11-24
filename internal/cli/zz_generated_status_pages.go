@@ -1177,6 +1177,67 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 	return cmd
 }
 
+func genStatusPagesDraftInfoCmd() *cobra.Command {
+	var dataJSON string
+	var fDraftID string
+	cmd := &cobra.Command{
+		Use:   "draft-info <draft-id>",
+		Short: "Get status page draft",
+		Long: `Get status page draft.
+
+Get one status page draft and whether it has been published.
+
+API: GET /status-page/draft/info (statusPageDraftInfo)
+
+Request fields:
+  --draft-id string (required) — Draft ID returned by 'POST /status-page/draft/create'.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - change_id (integer) (required) — Event the draft appends an update to; 0 when the draft creates a new event.
+  - consumed_at (string) (required) — Publish time in Unix epoch seconds; 0 while 'pending'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - consumed_by (integer) (required) — Member ID of the member who published the draft; 0 while 'pending'.
+  - consumed_change_id (integer) (required) — Event the draft was published to; 0 while 'pending'.
+  - created_at (string) (required) — Creation time in Unix epoch seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - created_by (integer) (required) — Member ID of the creator.
+  - draft (object) (required) — Draft payload exactly as stored by 'POST /status-page/draft/create'.
+  - draft_id (string) (required) — Draft ID.
+  - page_id (integer) (required) — Target status page ID from the draft payload.
+  - source (string) (required) — Producer label passed at creation; empty when not set.
+  - status (string) (required) — Publish state: 'pending' not yet published; 'published' already published to an event. [pending, published]
+  - type (string) (required) — Event type: 'incident' unplanned incident; 'maintenance' planned maintenance. [incident, maintenance]
+`,
+		Args: requireBodyFieldOrExactArg("draft_id", "draft-id"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "draft_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("draft-id") {
+						body["draft_id"] = fDraftID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.StatusPagesDraftInfoRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.StatusPages.DraftInfo(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out, body, listDefaultsFor("StatusPages", "DraftInfo"))
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fDraftID, "draft-id", "", "Draft ID returned by 'POST /status-page/draft/create'. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genStatusPagesInfoCmd() *cobra.Command {
 	var dataJSON string
 	var fPageID int64
@@ -2149,6 +2210,7 @@ func registerGeneratedStatusPages(root *cobra.Command) {
 	genAddLeaf(gStatusPage, genStatusPagesCreateCmd())
 	genAddLeaf(gStatusPage, genStatusPagesDeleteCmd())
 	genAddLeaf(gStatusPage, genStatusPagesDraftCreateCmd())
+	genAddLeaf(gStatusPage, genStatusPagesDraftInfoCmd())
 	genAddLeaf(gStatusPage, genStatusPagesInfoCmd())
 	genAddLeaf(gStatusPage, genStatusPagesMigrateEmailSubscribersCmd())
 	genAddLeaf(gStatusPage, genStatusPagesMigrateStructureCmd())

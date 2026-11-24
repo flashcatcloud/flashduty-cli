@@ -8,6 +8,54 @@ import (
 	flashduty "github.com/flashcatcloud/go-flashduty"
 )
 
+func genSkillsReadDownloadCmd() *cobra.Command {
+	var dataJSON string
+	var fSkillID string
+	cmd := &cobra.Command{
+		Use:   "skill-download <skill-id>",
+		Short: "Download skill package",
+		Long: `Download skill package.
+
+Download one skill as a zip archive.
+
+API: POST /safari/skill/download (skill-read-download)
+
+Request fields:
+  --skill-id string (required) — Target skill ID, from the list returned by 'POST /safari/skill/list'.
+`,
+		Args:    requireBodyFieldOrExactArg("skill_id", "skill-id"),
+		Example: `  flashduty safari skill-download --data '{"skill_id":"skill_8s7Hn2kLpQ3xYbVc4Wd2m"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "skill_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("skill-id") {
+						body["skill_id"] = fSkillID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.SkillGetRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				resp, err := ctx.Client.Skills.ReadDownload(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printRawOrNoPayload(ctx, resp)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fSkillID, "skill-id", "", "Target skill ID, from the list returned by 'POST /safari/skill/list'. (required)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genSkillsReadEnableCmd() *cobra.Command {
 	var dataJSON string
 	var fSkillID string
@@ -440,6 +488,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 
 func registerGeneratedSkills(root *cobra.Command) {
 	gSafari := genGroup(root, "safari", "AI SRE API")
+	genAddLeaf(gSafari, genSkillsReadDownloadCmd())
 	genAddLeaf(gSafari, genSkillsReadEnableCmd())
 	genAddLeaf(gSafari, genSkillsReadGetCmd())
 	genAddLeaf(gSafari, genSkillsReadListCmd())

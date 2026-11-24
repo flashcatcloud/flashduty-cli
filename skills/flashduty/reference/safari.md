@@ -448,6 +448,10 @@ Delete skill
 Disable skill
 - `<skill-id>` (positional, required) string — Target skill ID, from the list returned by 'POST /safari/skill/list'.
 
+### skill-download <skill-id>
+Download skill package
+- `<skill-id>` (positional, required) string — Target skill ID, from the list returned by 'POST /safari/skill/list'.
+
 ### skill-enable <skill-id>
 Enable skill
 - `<skill-id>` (positional, required) string — Target skill ID, from the list returned by 'POST /safari/skill/list'.
