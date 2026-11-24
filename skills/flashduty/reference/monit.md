@@ -16,7 +16,7 @@ Prereq: `SKILL.md` read. Flashmonit is five separate surfaces sharing one comman
 
 Key IDs are shared across all of them: **rule ID (int)** from `rule-list-basic`; **datasource ID (integer)** for tools and **datasource name (string)** for free queries — never guess, always discover via `datasource-list` (see `reference/monit-datasource.md`).
 
-Read verbs are free. Mutating verbs change state — confirm before running; each card flags its own, and marks the irreversible ones.
+Read verbs are free. Mutating verbs change state — see *Safety* in `SKILL.md`; each card flags its own, and marks the irreversible ones.
 
 <!-- GENERATED:monit START · 由 flashduty __dump-commands 同步 · 勿手改 fence 内 -->
 

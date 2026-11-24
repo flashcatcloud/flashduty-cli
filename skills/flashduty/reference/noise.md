@@ -2,7 +2,7 @@
 
 Prereq: `SKILL.md` read. Read verbs (`*-rule-list`) are free; every
 `silence-rule-*`, `inhibit-rule-*`, `unsubscribe-rule-*` create / update /
-enable / disable / delete mutates state — confirm before acting.
+enable / disable / delete mutates state — see *Safety* in `SKILL.md`.
 
 ## Route here when
 

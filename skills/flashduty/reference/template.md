@@ -1,6 +1,6 @@
 # flashduty template — command card
 
-Prereq: `SKILL.md` read. Read verbs are free. `create`, `update`, `delete` mutate account-wide notification templates — confirm before running. `delete <template-id>` is **irreversible**.
+Prereq: `SKILL.md` read. Read verbs are free. `create`, `update`, `delete` mutate account-wide notification templates — see *Safety* in `SKILL.md`. `delete <template-id>` is **irreversible**.
 
 **`update` writes only the fields you send.** A channel you omit keeps its current
 content; a channel you send as an empty string is cleared. So a one-channel edit sends one

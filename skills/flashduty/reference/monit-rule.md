@@ -6,7 +6,7 @@ Prereq: `SKILL.md` + `reference/monit.md` read. This is the largest Flashmonit s
 
 "监控规则 / 告警规则 / 规则文件夹 / 规则导出" or "alert rule / rule folder / rule export / rule audit" → this card.
 
-**Mutating:** `rule-v2-create`, `rule-v2-update`, `rule-update-fields`, `rule-move`, `rule-delete`, `rule-delete-batch` — confirm before running. **`rule-delete-batch` is irreversible**; confirm IDs with `rule-list-basic` first.
+**Mutating:** `rule-v2-create`, `rule-v2-update`, `rule-update-fields`, `rule-move`, `rule-delete`, `rule-delete-batch` — see *Safety* in `SKILL.md`. **`rule-delete-batch` is irreversible**; confirm IDs with `rule-list-basic` first.
 
 ## Intent → verb
 

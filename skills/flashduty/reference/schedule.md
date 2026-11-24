@@ -1,6 +1,6 @@
 # flashduty schedule — command card
 
-Prereq: `SKILL.md` read. **Read verbs are free. `delete` is irreversible — confirm IDs before executing. `create` / `update` immediately change the live rotation — confirm scope first.**
+Prereq: `SKILL.md` read. **Read verbs are free. `delete` is irreversible — confirm IDs before executing. `create` / `update` immediately change the live rotation.** See *Safety* in `SKILL.md`.
 
 ## Route here when
 
