@@ -220,10 +220,16 @@ List Feishu chats for an IM integration
 - `<data-source-id>` (positional, required) int64 — Feishu IM integration ID (integration_id / data_source_id); obtain it from 'flashduty datasource im-war-room-enabled-list' or 'flashduty integration list'.
 - response: `{items: [...]}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: chat_id (string); name (string); description (string); external (boolean); origin (string)
 
+### im-person-linked-list
+List IM-linked persons
+- `--data-source-id` int64 — Alias for 'integration_id' (legacy parameter name). Either 'integration_id' or 'data_source_id' must be provided.
+- `--integration-id` int64 — IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'. Either 'integration_id' or 'data_source_id' must be provided.
+- response: single object (`data` unwrapped to the top level) — fields: person_ids (array<integer>)
+
 ### im-person-try-link <integration-id>
 Attempt IM person linking
 - `<integration-id>` (positional, required) int64 — IM integration ID; obtain it from 'POST /datasource/im/war-room-enabled/list'.
-- response: single object (`data` unwrapped to the top level) — fields: new_linked_person_ids (array<integer>); no_contact_count (integer); unmatched_count (integer)
+- response: single object (`data` unwrapped to the top level) — fields: already_linked_person_ids (array<integer>); new_linked_person_ids (array<integer>); no_contact_count (integer); no_contact_person_ids (array<integer>); unmatched_count (integer); unmatched_person_ids (array<integer>)
 
 ### im-war-room-enabled-list
 List war-room-enabled IM integrations

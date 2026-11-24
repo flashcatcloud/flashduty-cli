@@ -90,6 +90,7 @@ var generatedOpIDs = []string{
 	"channelUnsubscribeRuleList",
 	"channelUnsubscribeRuleUpdate",
 	"channelUpdate",
+	"datasourceImPersonLinkedList",
 	"datasourceImPersonTryLink",
 	"enrichment-read-info",
 	"enrichment-read-list",
