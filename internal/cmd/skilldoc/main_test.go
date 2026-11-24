@@ -167,7 +167,7 @@ func TestRunGenAll_FillsEveryCardAndSkipsCardless(t *testing.T) {
 // Long documents no Response fields block, or the block yields zero fields
 // at the target depth (skilldoc's own extractor also emits nothing for that
 // case — nothing to cross-check).
-func independentlyClassifyResponse(long string) (shape string, fields []string, ok bool) {
+func independentlyClassifyResponse(long string) (shape, wrapKey string, fields []string, ok bool) {
 	lines := strings.Split(long, "\n")
 	headerLine := -1
 	for i, l := range lines {
@@ -177,13 +177,16 @@ func independentlyClassifyResponse(long string) (shape string, fields []string, 
 		}
 	}
 	if headerLine < 0 {
-		return "", nil, false
+		return "", "", nil, false
 	}
 
 	header := lines[headerLine]
+	const nested = "rows are nested under "
 	switch {
-	case strings.Contains(header, "nested under items[]"):
+	case strings.Contains(header, nested):
 		shape = "wrapped"
+		rest := header[strings.Index(header, nested)+len(nested):]
+		wrapKey = rest[:strings.Index(rest, "[]")]
 	case strings.Contains(header, "TOP-LEVEL array"):
 		shape = "array"
 	default:
@@ -191,7 +194,7 @@ func independentlyClassifyResponse(long string) (shape string, fields []string, 
 	}
 	prefix := "  - "
 	if shape == "wrapped" {
-		prefix = "    - " // one level under the sole top-level "items" row
+		prefix = "    - " // one level under the sole top-level row array
 	}
 	for _, l := range lines[headerLine+1:] {
 		if strings.TrimSpace(l) == "" {
@@ -206,14 +209,14 @@ func independentlyClassifyResponse(long string) (shape string, fields []string, 
 		}
 		fields = append(fields, name)
 	}
-	return shape, fields, len(fields) > 0
+	return shape, wrapKey, fields, len(fields) > 0
 }
 
-// isCligenWrapperWireName mirrors (independently — not by import) the three
+// isCligenWrapperWireName mirrors (independently — not by import) the four
 // wire names cligen's own listEnvelope (internal/cmd/cligen/main.go) treats
 // as a paginated-list envelope field.
 func isCligenWrapperWireName(name string) bool {
-	return name == "items" || name == "docs" || name == "list"
+	return name == "items" || name == "docs" || name == "list" || name == "environments"
 }
 
 // responseLineOf returns the "- response: ..." bullet inside a rendered fence
@@ -243,7 +246,7 @@ func TestGenerateFence_ResponseShapeMatchesRealLong_AllCommands(t *testing.T) {
 
 	checked := 0
 	for _, c := range d.Commands {
-		wantShape, wantFields, hasBlock := independentlyClassifyResponse(c.Long)
+		wantShape, wrapKey, wantFields, hasBlock := independentlyClassifyResponse(c.Long)
 		if !hasBlock {
 			continue
 		}
@@ -281,8 +284,8 @@ func TestGenerateFence_ResponseShapeMatchesRealLong_AllCommands(t *testing.T) {
 		}
 		switch wantShape {
 		case "wrapped":
-			if !strings.Contains(gotLine, "page wrapper") || !strings.Contains(gotLine, "jq '.items[]'") {
-				t.Errorf("%s: want items[] page wrapper, got:\n%s", c.Path, gotLine)
+			if !strings.Contains(gotLine, "page wrapper") || !strings.Contains(gotLine, "jq '."+wrapKey+"[]'") {
+				t.Errorf("%s: want %s[] page wrapper, got:\n%s", c.Path, wrapKey, gotLine)
 			}
 		case "array":
 			if !strings.Contains(gotLine, "TOP-LEVEL array") {

@@ -39,7 +39,7 @@ Request fields:
   --scope string — 'all' account-scope and team Runners; 'account' account-scope only; 'team' team Runners only. Overrides 'include_account'. [all, account, team]
   --team-ids []int — Restrict team Runners to these teams; IDs of teams the caller does not belong to are ignored.
 
-Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+Response fields ('data' envelope is unwrapped — rows are nested under environments[]; pipe 'jq '.environments[]'', NOT '.data.environments[]'):
   - environments (array<object>) (required) — Runners on this page.
     - arch (string) — CPU architecture reported by the Runner, such as 'amd64' or 'arm64'.
     - can_edit (boolean) (required) — 'true' when the caller can manage this Runner.

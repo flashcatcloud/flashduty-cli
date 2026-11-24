@@ -272,7 +272,7 @@ List self-hosted Runners
 - `--scope` string — 'all' account-scope and team Runners; 'account' account-scope only; 'team' team Runners only. Overrides 'include_account'. · enum: all | account | team
 - `--search-after-ctx` string
 - `--team-ids` intSlice — Restrict team Runners to these teams; IDs of teams the caller does not belong to are ignored.
-- response: `{items: [...], environments, latest_version, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: arch (string); can_edit (boolean); created_at (string); environment_id (string); hostname (string); ip_address (string); labels (array<string>); name (string); os (string); status (string); team_id (integer); vcs_credentials_disabled (boolean); version (string)
+- response: `{environments: [...], latest_version, total}` page wrapper — pipe `--json | jq '.environments[]'` (NOT top-level `.[]`) — environments fields: arch (string); can_edit (boolean); created_at (string); environment_id (string); hostname (string); ip_address (string); labels (array<string>); name (string); os (string); status (string); team_id (integer); vcs_credentials_disabled (boolean); version (string)
 
 ### knowledge-file-delete
 Delete knowledge file

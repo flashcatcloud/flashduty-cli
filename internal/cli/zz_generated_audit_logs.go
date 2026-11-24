@@ -80,7 +80,7 @@ Request fields:
   --since string — Window start, written to start_time (Unix seconds): a duration before now (30m, 2h, 7d), 'now', RFC3339, a date, a datetime, or Unix seconds/ms (one-second precision). Without --until the window ends now. Setting a field --data or --start-time/--end-time also sets is an error.
   --until string — Window end, written to end_time (Unix seconds); same forms as --since, plus '+2h' for the future.
 
-Response fields ('data' envelope is unwrapped — rows are nested under items[]; pipe 'jq '.items[]'', NOT '.data.items[]'):
+Response fields ('data' envelope is unwrapped — rows are nested under docs[]; pipe 'jq '.docs[]'', NOT '.data.docs[]'):
   - docs (array<object>) — Audit log entries for this page, newest first. Omitted when the page is empty.
     - account_id (integer) (required) — ID of the account the entry belongs to.
     - body (string) (required) — JSON-encoded request body. Bodies containing sensitive fields are base64url-encoded instead; bodies over 10 KB are replaced by a truncation placeholder.

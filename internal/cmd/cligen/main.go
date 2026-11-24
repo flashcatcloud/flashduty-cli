@@ -1636,40 +1636,39 @@ func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire ma
 // responseSection renders the "Response fields" help block for a response tree,
 // or "" when the response has no documented schema. Shared by longHelp (embedded
 // in generated commands) and emitResponseHelp (looked up by curated commands).
-// listEnvelope returns the row (array-element) fields and true when resp is a
-// list envelope: exactly one object-array field named items/docs/list/environments
+// listEnvelope returns the row (array-element) fields and the wire name of the
+// row array when resp is a list envelope (key "" otherwise): exactly one object-array field named items/docs/list/environments
 // (the last is the self-hosted Runner list, which carries latest_version). Its
 // siblings are usually pagination metadata (total, p, limit, has_next_page …)
 // but may be any field (calendar event list carries a days map); they stay at
 // the top level next to the rows. This is the shape the backend returns under
 // `data`; the CLI's curated list commands flatten it to a top-level array.
-func listEnvelope(resp []schemaField) ([]schemaField, bool) {
-	var rows []schemaField
-	found := false
+func listEnvelope(resp []schemaField) (rows []schemaField, key string) {
 	for _, f := range resp {
 		if (f.Wire == "items" || f.Wire == "docs" || f.Wire == "list" || f.Wire == "environments") && strings.HasPrefix(f.Type, "array") && len(f.Children) > 0 {
-			if found {
-				return nil, false
+			if key != "" {
+				return nil, ""
 			}
-			rows, found = f.Children, true
+			rows, key = f.Children, f.Wire
 		}
 	}
-	return rows, found
+	return rows, key
 }
 
 // responseSection renders the Response-fields block. printGenericResult UNWRAPS
 // the {request_id,error,data} envelope and prints `data`'s content at the top
 // level (verified: `fduty schedule list --json | jq 'keys'` → [items,total], and
 // `jq '.data'` → null). So the printed shape is `data`'s content directly — never
-// nested under a `.data` key. A list envelope keeps its rows under items[]; the
-// correct jq is `.items[]`, NOT `.data.items[]`.
+// nested under a `.data` key. A list envelope keeps its rows under its own wire
+// key (items/docs/list/environments); for items the correct jq is `.items[]`,
+// NOT `.data.items[]`.
 func responseSection(resp []schemaField) string {
 	if len(resp) == 0 {
 		return ""
 	}
 	var b strings.Builder
-	if _, ok := listEnvelope(resp); ok {
-		b.WriteString("Response fields (`data` envelope is unwrapped — rows are nested under items[]; pipe `jq '.items[]'`, NOT `.data.items[]`):\n")
+	if _, key := listEnvelope(resp); key != "" {
+		fmt.Fprintf(&b, "Response fields (`data` envelope is unwrapped — rows are nested under %[1]s[]; pipe `jq '.%[1]s[]'`, NOT `.data.%[1]s[]`):\n", key)
 	} else {
 		b.WriteString("Response fields (`data` envelope is unwrapped — these fields are at the top level):\n")
 	}
@@ -1699,7 +1698,7 @@ func responseSectionTopArray(rows []schemaField) string {
 // jq path that actually matches the output. Non-list responses fall through to
 // responseSection unchanged.
 func responseSectionList(resp []schemaField) string {
-	if rows, ok := listEnvelope(resp); ok {
+	if rows, key := listEnvelope(resp); key != "" {
 		var b strings.Builder
 		b.WriteString("Response fields (this command's `--json` is a TOP-LEVEL array of these row objects — pipe `jq '.[]'`, NOT `.items[]`):\n")
 		renderTree(&b, rows, 1)
