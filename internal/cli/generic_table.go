@@ -117,10 +117,10 @@ type listMeta struct {
 	siblings []string  // wire names of the non-pagination fields beside the rows
 }
 
-// listRowFields are the Go names of the row fields — wire items, docs, list, the
-// names cligen's listEnvelope matches — that mark a list envelope even when it
-// carries more than pagination metadata.
-var listRowFields = map[string]bool{"Items": true, "Docs": true, "List": true}
+// listRowFields are the Go names of the row fields — wire items, docs, list,
+// environments, the names cligen's listEnvelope matches — that mark a list
+// envelope even when it carries more than pagination metadata.
+var listRowFields = map[string]bool{"Items": true, "Docs": true, "List": true, "Environments": true}
 
 // listEnvelope reports whether struct v is a paginated list envelope: exactly
 // one exported field that is a slice of structs (the rows), with any remaining

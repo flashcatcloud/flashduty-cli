@@ -1637,7 +1637,8 @@ func longHelp(o specOp, scalars []scalarField, complexFields []string, byWire ma
 // or "" when the response has no documented schema. Shared by longHelp (embedded
 // in generated commands) and emitResponseHelp (looked up by curated commands).
 // listEnvelope returns the row (array-element) fields and true when resp is a
-// list envelope: exactly one object-array field named items/docs/list. Its
+// list envelope: exactly one object-array field named items/docs/list/environments
+// (the last is the self-hosted Runner list, which carries latest_version). Its
 // siblings are usually pagination metadata (total, p, limit, has_next_page …)
 // but may be any field (calendar event list carries a days map); they stay at
 // the top level next to the rows. This is the shape the backend returns under
@@ -1646,7 +1647,7 @@ func listEnvelope(resp []schemaField) ([]schemaField, bool) {
 	var rows []schemaField
 	found := false
 	for _, f := range resp {
-		if (f.Wire == "items" || f.Wire == "docs" || f.Wire == "list") && strings.HasPrefix(f.Type, "array") && len(f.Children) > 0 {
+		if (f.Wire == "items" || f.Wire == "docs" || f.Wire == "list" || f.Wire == "environments") && strings.HasPrefix(f.Type, "array") && len(f.Children) > 0 {
 			if found {
 				return nil, false
 			}

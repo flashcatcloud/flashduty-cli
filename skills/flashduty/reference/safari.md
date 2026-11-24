@@ -261,6 +261,19 @@ Fire an Automation HTTP POST trigger
 - `--text` string
 - `--token` string
 
+### environment-self-hosted-list
+List self-hosted Runners
+- `--asc` bool — Sort ascending when 'orderby' is set.
+- `--include-account` bool — Whether to include account-scope Runners ('team_id' = 0). Defaults to 'true'; ignored when 'scope' is set.
+- `--limit` int64 — Page size. Defaults to 20 once pagination is in effect. (min 1)
+- `--orderby` string — Sort column: 'name' or 'created_at'. Empty keeps the default order ('created_at' descending) and ignores 'asc'. · enum: name | created_at
+- `--page` int64 — Page number, starting from 1. (min 1)
+- `--query` string — Substring filter over name, ID, labels, status, version, OS, architecture, hostname and IP address. Up to 128 characters. (≤128 chars)
+- `--scope` string — 'all' account-scope and team Runners; 'account' account-scope only; 'team' team Runners only. Overrides 'include_account'. · enum: all | account | team
+- `--search-after-ctx` string
+- `--team-ids` intSlice — Restrict team Runners to these teams; IDs of teams the caller does not belong to are ignored.
+- response: `{items: [...], environments, latest_version, total}` page wrapper — pipe `--json | jq '.items[]'` (NOT top-level `.[]`) — items fields: arch (string); can_edit (boolean); created_at (string); environment_id (string); hostname (string); ip_address (string); labels (array<string>); name (string); os (string); status (string); team_id (integer); vcs_credentials_disabled (boolean); version (string)
+
 ### knowledge-file-delete
 Delete knowledge file
 - `--expected-version` int64 — Optimistic-concurrency guard. '0' or omitted: delete unconditionally. A positive value: delete only if the knowledge's current 'version' equals it; otherwise nothing is deleted and the call returns HTTP 200 with 'status' = 'conflict' and the current 'version'. (min 0)

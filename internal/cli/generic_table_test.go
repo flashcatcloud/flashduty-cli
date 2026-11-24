@@ -160,6 +160,30 @@ func TestRenderGenericTable_EnvelopeWithSiblings(t *testing.T) {
 	}
 }
 
+// The self-hosted Runner list keeps its rows under environments next to a
+// latest_version string; it must still render as rows, not a FIELD/VALUE dump.
+func TestRenderGenericTable_EnvironmentsEnvelope(t *testing.T) {
+	type resp struct {
+		Environments  []heuristicRow `json:"environments"`
+		Total         int            `json:"total"`
+		LatestVersion string         `json:"latest_version"`
+	}
+	var buf bytes.Buffer
+	in := &resp{Environments: []heuristicRow{{Name: "prod-k8s", Count: 1}}, Total: 1, LatestVersion: "0.1.40"}
+	if err := renderGenericTable(tableCtx(&buf), in, listWindow{}); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	got := buf.String()
+	for _, want := range []string{"NAME", "prod-k8s", "(total 1).", "Also in the response: latest_version (use --json to see it)."} {
+		if !strings.Contains(got, want) {
+			t.Errorf("output missing %q\n---\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "ENVIRONMENTS[0]") {
+		t.Errorf("rows were flattened into FIELD/VALUE\n%s", got)
+	}
+}
+
 func TestRenderGenericTable_EmptyEnvelopeWithSiblings(t *testing.T) {
 	type resp struct {
 		Items          []heuristicRow `json:"items"`

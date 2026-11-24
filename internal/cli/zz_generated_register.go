@@ -12,6 +12,7 @@ func registerGenerated(root *cobra.Command) {
 	registerGeneratedAutomations(root)
 	registerGeneratedKnowledge(root)
 	registerGeneratedMcpServers(root)
+	registerGeneratedRunners(root)
 	registerGeneratedSessions(root)
 	registerGeneratedSkills(root)
 	registerGeneratedAlertRules(root)
