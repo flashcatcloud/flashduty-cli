@@ -47,6 +47,7 @@ var listDefaultsBySDKMethod = map[string]listDefaults{
 	"NotificationTemplates.ReadList":           {Limit: 20, PageBase: pageOne},
 	"RumDashboards.ReadList":                   {Limit: 20, PageBase: pageOne},
 	"RumDashboards.ReadTrashList":              {Limit: 20, PageBase: pageOne},
+	"Runners.List":                             {PageBase: pageUnknown},
 	"Schedules.List":                           {Limit: 10, PageBase: pageOne},
 	"SessionReplay.Segments":                   {Limit: 20},
 	"Sessions.ReadList":                        {Limit: 20, PageBase: pageOne},

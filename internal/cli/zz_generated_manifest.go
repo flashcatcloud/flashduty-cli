@@ -96,6 +96,7 @@ var generatedOpIDs = []string{
 	"enrichment-read-preview",
 	"enrichment-sample-read-list",
 	"enrichment-write-upsert",
+	"environment-read-self-hosted-list",
 	"field-read-info",
 	"field-read-list",
 	"field-write-create",

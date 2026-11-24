@@ -668,7 +668,7 @@ func narrowNumbers(value any) any {
 }
 
 // listEnvelopeKey reports whether value is a paginated list envelope — exactly
-// one array field named items/docs/list with only scalar siblings (total,
+// one array field named items/docs/list/environments with only scalar siblings (total,
 // has_next_page, search_after_ctx, …) — and returns the row array's key. It is
 // stricter than cligen's listEnvelope, which also accepts object or array
 // siblings: such a response is a richer record, and --fields projects it as a
@@ -677,7 +677,7 @@ func listEnvelopeKey(value map[string]any) (string, bool) {
 	key := ""
 	for name, field := range value {
 		_, isArray := field.([]any)
-		if isArray && (name == "items" || name == "docs" || name == "list") {
+		if isArray && (name == "items" || name == "docs" || name == "list" || name == "environments") {
 			if key != "" {
 				return "", false // two candidate row arrays: not a flat list envelope
 			}

@@ -22,6 +22,11 @@ func TestListEnvelope(t *testing.T) {
 			{Wire: "items", Type: "array<object>", Children: row},
 			{Wire: "list", Type: "array<object>", Children: row},
 		}, false},
+		{"environments rows with a scalar sibling", []schemaField{
+			{Wire: "environments", Type: "array<object>", Children: row},
+			{Wire: "total", Type: "integer"},
+			{Wire: "latest_version", Type: "string"},
+		}, true},
 		{"no row array", []schemaField{
 			{Wire: "rules", Type: "array<object>", Children: row},
 			{Wire: "total", Type: "integer"},
