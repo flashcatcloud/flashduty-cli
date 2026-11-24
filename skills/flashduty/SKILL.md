@@ -51,13 +51,9 @@ The hot path: **read the domain card** (index below) for the exact verb + flags.
 
 Configuration, permission-model, enrichment, monitor, and on-call questions are answered by `flashduty` itself (the cards + the live commands). Do **not** grep external documentation or browse the web for something the CLI covers — that usually returns staler information than the live API. Read the card, run the verb.
 
-## Safety — act on the request, ask only for what the user must decide
+## Safety — what each mutation does
 
-Read verbs (`list`, `get`, `info`, `detail`, `timeline`) are free. A mutating verb (`create`, `update`, `enable`, `ack`, `close`, `assign`, `move`, …) that the user asked for is authorized by that request — run it directly; don't stop to ask whether to write. Stop and ask only when:
-
-- **A value only the user can decide is missing.** Match conditions of a silence / inhibit / drop rule, who gets notified or paged, who an incident is assigned to, the content a subscriber will read. Never invent such a value to get past server validation — a placeholder filter or a guessed target turns a 4xx into a write the user never intended. A 4xx naming a missing required field means ask. Values you can derive from the user's words or existing data (time formats, durations, name → ID lookups, enum spelling) you fix yourself and retry.
-- **The action is irreversible or bulk.** `delete` / `remove` / `merge` / `truncate`, or one mutate across many targets: `list` to confirm the IDs, then get explicit confirmation.
-- **The user asked for advice, not a change** (「推荐 / 建议 / 看一下」). Propose; write only after they say go.
+Read verbs (`list`, `get`, `info`, `detail`, `timeline`) are free. Mutating verbs (`create`, `update`, `delete`, `merge`, `ack`, `close`, `assign`, `move`, …) change state. `merge` / `delete` are **irreversible** — double-check IDs. `create` notifies responders/subscribers. `list` before any bulk mutate to confirm the IDs.
 
 **Keep an undo path — back up before overwriting.** Before `update` / `upsert` / `delete` on critical config (escalation policies, schedules, integrations, routing, status pages, alert rules, notification templates), fetch the current object with the matching read verb and save it to `backups/<resource>_<id>_<timestamp>.json` in your workspace. Your completion report must state: what changed, where the backup file is, and how to restore (re-upsert the saved JSON / delete the created IDs). For `create`-only changes skip the backup — report the undo (delete) instead. This is the only undo path for resources without server-side history: one read call buys recoverability.
 

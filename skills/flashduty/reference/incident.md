@@ -1,6 +1,6 @@
 # flashduty incident — command card
 
-Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders or alter state** — see *Safety* in `SKILL.md`. `merge` and `remove` are **irreversible**; `remove` permanently deletes.
+Prereq: `SKILL.md` read. Read verbs are free. **Mutating verbs notify responders or alter state**. `merge` and `remove` are **irreversible**; `remove` permanently deletes.
 
 ## Route here when
 
