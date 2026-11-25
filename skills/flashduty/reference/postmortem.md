@@ -2,8 +2,7 @@
 
 Prereq: `SKILL.md` read. `post-mortem-list` / `post-mortem-info` /
 `post-mortem-template-list` / `post-mortem-template-info` are free reads;
-init / reset / upsert / delete verbs mutate report state — confirm before
-acting. `post-mortem-delete` and `post-mortem-template-delete` are
+init / reset / upsert / delete verbs mutate report state. `post-mortem-delete` and `post-mortem-template-delete` are
 **irreversible**.
 
 ## Route here when

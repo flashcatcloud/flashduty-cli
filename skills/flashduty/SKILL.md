@@ -51,9 +51,9 @@ The hot path: **read the domain card** (index below) for the exact verb + flags.
 
 Configuration, permission-model, enrichment, monitor, and on-call questions are answered by `flashduty` itself (the cards + the live commands). Do **not** grep external documentation or browse the web for something the CLI covers — that usually returns staler information than the live API. Read the card, run the verb.
 
-## Safety — confirm before mutating
+## Safety — what each mutation does
 
-Read verbs (`list`, `get`, `info`, `detail`, `timeline`) are free. Mutating verbs (`create`, `update`, `delete`, `merge`, `ack`, `close`, `assign`, `move`, …) change state — recommend the action and get explicit per-target confirmation first. `merge` / `delete` are **irreversible** — double-check IDs. `create` notifies responders/subscribers. `list` before any bulk mutate to confirm the IDs.
+Read verbs (`list`, `get`, `info`, `detail`, `timeline`) are free. Mutating verbs (`create`, `update`, `delete`, `merge`, `ack`, `close`, `assign`, `move`, …) change state. `merge` / `delete` are **irreversible** — double-check IDs. `create` notifies responders/subscribers. `list` before any bulk mutate to confirm the IDs.
 
 **Keep an undo path — back up before overwriting.** Before `update` / `upsert` / `delete` on critical config (escalation policies, schedules, integrations, routing, status pages, alert rules, notification templates), fetch the current object with the matching read verb and save it to `backups/<resource>_<id>_<timestamp>.json` in your workspace. Your completion report must state: what changed, where the backup file is, and how to restore (re-upsert the saved JSON / delete the created IDs). For `create`-only changes skip the backup — report the undo (delete) instead. This is the only undo path for resources without server-side history: one read call buys recoverability.
 

@@ -2,7 +2,7 @@
 
 Prereq: `SKILL.md` read. `escalate-rule-list` / `escalate-rule-info` are free
 reads; `escalate-rule-create/update/delete/enable/disable` mutate who gets
-paged — confirm before acting.
+paged.
 
 ## Route here when
 

@@ -1,6 +1,6 @@
 # flashduty rum — command card
 
-Prereq: `SKILL.md` read. Read verbs are free. `application-create` / `application-update` / `application-delete` / `issue-update` mutate state — confirm before running. `application-delete` is **irreversible**.
+Prereq: `SKILL.md` read. Read verbs are free. `application-create` / `application-update` / `application-delete` / `issue-update` mutate state. `application-delete` is **irreversible**.
 
 ## Route here when
 

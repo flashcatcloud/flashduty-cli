@@ -22,7 +22,7 @@ Never retry a failed call through the other integration family, including on acc
 - Start with `type-list` and `list`. Create only a `plugin_type` whose type entry has `supports_api_create: true`.
 - List/info return stored `settings` with each saved secret as `******`, and `integration_key` as is. Prefer `--fields` projections for discovery; do not paste the integration key into a report or unrelated tool. An integration key authenticates inbound pushes; it is not the account App Key used by this CLI.
 - `editable` describes object permission; writes also require Integrations Manage. `no_editable: true` marks a read-only integration. Do not infer write authorization from read access.
-- Before update/delete or key rotation, get per-target confirmation and save `info` to the protected workspace backup described in `SKILL.md`. Confirm references before deletion. Rotating the key invalidates the old key immediately; update the sender configuration as part of the approved change.
+- Before update/delete or key rotation, save `info` to the protected workspace backup described in `SKILL.md`. Check references before deletion. Rotating the key invalidates the old key immediately; senders still using it stop delivering until they are reconfigured.
 - Metadata-only updates preserve omitted fields. `--team-id 0` deliberately clears team ownership. Submitted `settings` replace type-specific configuration; known sensitive fields omitted or set to `******` preserve their stored value. A stored secret cannot be kept while its destination (such as `endpoint`, `url`, or a database host or port) changes; send the real secret with the new destination. An explicit `headers: {}` clears headers.
 - `--is-test` on create, or on update with `settings`, returns plugin test results. Inspect `test.success` and `test.message`: HTTP success is not plugin-test success. An absent `test` means no test result was returned, not a successful test.
 
@@ -34,14 +34,14 @@ flashduty integration list --fields integration_id,name,plugin_type,team_id,edit
 flashduty integration info 42 --fields integration_id,name,plugin_type,team_id,editable,no_editable --output-format toon
 ```
 
-### Approved configuration changes
+### Configuration changes
 
 Use the exact type-specific settings provided for the target integration; do not guess credential keys. `--integration-key` is optional on create; omitting it generates a key. If provided, it must satisfy the account suffix, length, and uniqueness checks.
 
 ```bash
-# Only after confirmation; inspect the returned integration_id/key and test result.
+# Inspect the returned integration_id/key and test result.
 flashduty integration create --plugin-type standard.alert --name "Production alerts" --is-test --data '{"settings":{}}' --json
-# Only after backing up integration 42 and confirming this rename.
+# Back up integration 42 (`info`) first.
 flashduty integration update 42 --name "Production alerts (primary)" --json
 ```
 
@@ -129,16 +129,16 @@ Use the channel's `channel_id` to list or create dedicated integrations. Info, u
 - Reads require Channels Read or Manage and visibility of the channel. Private channels remain restricted.
 - Writes require Channels Manage and management of the owning channel. Creating an integration does not grant its creator channel management rights.
 - List/info return the complete `integration_key` and masked settings. Use field projections for discovery and keep keys out of reports. App Key scopes may further restrict calls.
-- Before update/delete, enable/disable, or key rotation, follow `SKILL.md`'s confirmation and protected-backup rules for the specific target. Before create, confirm the target channel and intended scope. For key rotation, confirm sender reconfiguration because the old key stops working immediately. Remove references before deletion.
+- Before update/delete, enable/disable, or key rotation, save the target's `info` per `SKILL.md`'s protected-backup rule. Create lands in the channel given by `--channel-id`. Rotating the key stops the old key immediately, so its senders must be reconfigured. Remove references before deletion.
 - Dedicated updates accept name, description, and settings. Omitted or null fields retain their value; `--description ""` clears the description. `settings: {}` is an explicit replacement, subject to type validation. Known secrets omitted or set to `******` are preserved; changing their destination requires the real secret. Dedicated commands have no `--team-id` or `--is-test` option and cannot move an integration to another channel.
 
 ```bash
 # Discover only within the requested collaboration space.
 flashduty channel integration-list --channel-id 20001 --fields integration_id,channel_id,name,plugin_type,status --output-format toon
 flashduty channel integration-info 10001 --fields integration_id,channel_id,name,plugin_type,status --output-format toon
-# Only after confirmation of this channel, scope, and type-specific settings.
+# Create in the requested channel with the type-specific settings provided.
 flashduty channel integration-create --channel-id 20001 --plugin-type standard.alert --name "Primary alerts" --data '{"settings":{}}' --json
-# Only after backing up integration 10001 and confirming this rename.
+# Back up integration 10001 (`integration-info`) first.
 flashduty channel integration-update 10001 --name "Primary alerts (renamed)" --json
 ```
 

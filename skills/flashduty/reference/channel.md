@@ -1,6 +1,6 @@
 # flashduty channel — command card
 
-Prereq: `SKILL.md` read. Read verbs are free; `create`, `update`, `delete`, `disable`, `enable` mutate state — confirm before acting. `delete` is **irreversible**.
+Prereq: `SKILL.md` read. Read verbs are free; `create`, `update`, `delete`, `disable`, `enable` mutate state. `delete` is **irreversible**.
 
 ## Route here when
 

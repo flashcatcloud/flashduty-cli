@@ -8,7 +8,7 @@ Prereq: `SKILL.md` + `reference/monit.md` read. Datasources are what every other
 
 **"Datasource" is two unrelated things in this product — check which one the user means.** This card is `POST /monit/datasource/*`: the Flashmonit config surface, i.e. the systems Flashmonit *queries*. On-call has its own, older use of the word: the top-level `datasource` group is `POST /datasource/*` and holds IM-integration plumbing (`flashduty datasource im-war-room-enabled-list`, `flashduty datasource im-person-try-link`), while the On-call **integrations** that *receive* alerts into a channel live in `reference/channel.md`. So 接入告警 / 集成 / 告警来源 → On-call, not here; "连一个 Prometheus / Loki / MySQL 上来查" → here.
 
-**Mutating:** `datasource-create`, `datasource-update`, `datasource-delete` — confirm before running. **`datasource-delete` is irreversible**; confirm the target with `datasource-info` first.
+**Mutating:** `datasource-create`, `datasource-update`, `datasource-delete`. **`datasource-delete` is irreversible**; confirm the target with `datasource-info` first.
 
 ## Intent → verb
 

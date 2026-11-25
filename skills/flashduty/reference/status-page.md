@@ -1,8 +1,8 @@
 # flashduty status-page — command card
 
-Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on status pages — no `--help` needed.** Read verbs are free; any `change-*` create/update with `--notify-subscribers` pages subscribers immediately — confirm scope first.
+Prereq: `SKILL.md` read. **SKILL.md + this card = full competence on status pages — no `--help` needed.** Read verbs are free; any `change-*` create/update with `--notify-subscribers` pages subscribers immediately.
 
-Structure mutations (`component-upsert` / `component-delete` / `section-upsert` / `section-delete` / `update` / `delete`) on a **public** page change what visitors see immediately, though none of them notify subscribers (only `change-*` with `--notify-subscribers` does). If the task was advisory (「推荐 / 建议 / 看一下」), the user endorsing your proposed structure approves the design, not the write — confirm once before the first mutation. After mutating, report the public page URL, what you verified, and the exact undo (`component-delete` / `section-delete` with the returned IDs).
+Structure mutations (`component-upsert` / `component-delete` / `section-upsert` / `section-delete` / `update` / `delete`) on a **public** page change what visitors see immediately, though none of them notify subscribers (only `change-*` with `--notify-subscribers` does). After mutating, report the public page URL, what you verified, and the exact undo (`component-delete` / `section-delete` with the returned IDs).
 
 ## Route here when
 
@@ -286,7 +286,7 @@ Update status page
 - **`page_id` can be passed positionally or via `--page-id` — both work.** Verbs whose fence heading reads `### <verb> <page-id>` (change-create, change-active-list, change-list, subscriber-export/import/list) accept it either way — positional is shorter: `change-create <page_id> …` or `change-create --page-id <page_id> …`; if both are given, the flag wins. Verbs that need *both* `page-id` and `change-id` (change-info, change-delete, change-timeline-*, change-update) take both as flags only — neither has a positional form. `migrate-structure`'s positional/flag is a different field, `source-page-id` (the Atlassian source page ID), not `page-id`.
 - **`page_id` (int) ≠ `change_id` (int)** — page is the status page; change is one incident/maintenance within it. Don't cross them.
 - **`updates` is required on `change-create`** and goes via `--data` (it nests `component_changes[]`, which can't be flat flags). `--description` is also required by the server even though it's not flagged required. Typed scalar flags (`--title`, `--status`…) override matching `--data` keys.
-- **`--notify-subscribers` emails + pushes every subscriber immediately** — set it only once scope is confirmed.
+- **`--notify-subscribers` emails + pushes every subscriber immediately** — a sent notification cannot be recalled.
 - **Migration is async and TWO separate jobs.** `migrate-structure` (structure + history, no emails) is deliberately separate from `migrate-email-subscribers` — verify the imported content before any subscriber verification emails go out. Poll `migration-status` until `completed` / `failed` / `cancelled`.
 - Empty `change-active-list` is the authoritative "nothing open" — don't widen the query.
 
