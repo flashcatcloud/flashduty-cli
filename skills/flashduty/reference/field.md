@@ -44,10 +44,11 @@ flashduty field update <field-id> \
 ### create
 Create field
 - `--description` string — Optional free-text description. (≤499 chars)
-- `--display-name` string (required) — Human-readable name. Must be unique within the account. (≤39 chars)
+- `--display-name` string (required) — Human-readable name. Must be unique within the account. (≤40 chars)
 - `--field-name` string (required) — Machine name: 1–39 characters of '[a-zA-Z0-9_]', starting with a letter or underscore. Immutable after creation. (≤39 chars)
 - `--field-type` string (required) — Field type, immutable after creation. | Value | Meaning | |---|---| | 'text' | Free text; 'value_type' must be 'string', no 'options'. | | 'single_select' | Single choice from 'options'; 'value_type' must be 'string'. | | 'multi_select' | Multiple choices from 'options'; 'value_type' must be 'string'. | | 'checkbox' | Boolean checkbox; 'value_type' must be 'bool', no 'options'. | · enum: checkbox | multi_select | single_select | text
 - `--options` stringSlice — Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.
+- `--usage` stringSlice — Objects the field is offered on: 'incident', 'change', or both. Omit for incidents only. When sent, it must name at least one value, without duplicates. · enum: incident | change
 - `--value-type` string (required) — Value type. 'checkbox' requires 'bool'; all other types require 'string'. Immutable after creation. 'float' is a reserved value currently rejected for every 'field_type'. · enum: string | bool | float
 - body-only (`--data`): default_value (any)
 - response: single object (`data` unwrapped to the top level) — fields: field_id (string); field_name (string)
@@ -59,7 +60,7 @@ Delete field
 ### info <field-id>
 Get field detail
 - `<field-id>` (positional, required) string — Field ID — 24-character hex ObjectID.
-- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); default_value (any); deleted_at (string); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (array<string>); status (string); updated_at (string); updated_by (integer); value_type (string)
+- response: single object (`data` unwrapped to the top level) — fields: account_id (integer); created_at (string); creator_id (integer); default_value (any); deleted_at (string); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (array<string>); status (string); updated_at (string); updated_by (integer); usage (array<string>); value_type (string)
 
 ### list
 List custom fields
@@ -68,14 +69,15 @@ List custom fields
 - `--name` string
 - `--orderby` string
 - `--query` string
-- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); default_value (any); deleted_at (string); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (array<string>); status (string); updated_at (string); updated_by (integer); value_type (string)
+- response: TOP-LEVEL array — pipe `--json | jq '.[]'` (NOT `.items[]`) — fields: account_id (integer); created_at (string); creator_id (integer); default_value (any); deleted_at (string); description (string); display_name (string); field_id (string); field_name (string); field_type (string); options (array<string>); status (string); updated_at (string); updated_by (integer); usage (array<string>); value_type (string)
 
 ### update <field-id>
 Update field
 - `--description` string — New description. Always written: omitting it clears the description.
-- `--display-name` string — New display name (max 39 characters); must stay unique among non-deleted fields. Always written. (≤39 chars)
+- `--display-name` string — New display name (max 40 characters); must stay unique among non-deleted fields. Always written. (≤40 chars)
 - `<field-id>` (positional, required) string — Field ID — 24-character hex ObjectID.
 - `--options` stringSlice — Replacement options list. Must obey the same per-type rules as create. Note: the update always overwrites 'display_name', 'description', 'options', and 'default_value' with the submitted values, so for 'single_select'/'multi_select' fields a non-empty 'options' list must be sent on every update.
+- `--usage` stringSlice — Objects the field is offered on: 'incident', 'change', or both. Omit to keep the current value. When sent, it must name at least one value, without duplicates. · enum: incident | change
 - body-only (`--data`): default_value (any)
 
 <!-- GENERATED:field END -->

@@ -40,7 +40,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - channel_status (string) (required) — Status of the collaboration channel: 'enabled' or 'disabled'; an empty string when the change is not routed to an existing channel. [enabled, disabled]
   - checklist (array<object>) (required) — Execution checklist of the change; replaced as a whole by a console edit, and by a push whenever it carries one. Empty when the change has none.
     - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
-    - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+    - by (string) — Display name of the member who ticked it; omitted when the item is not ticked.
     - done (boolean) — Whether the item has been ticked off.
     - text (string) (required) — Checklist item text.
   - creator (any) (required) — Actor of the change's first event, 'null' when the change has no event or the actor resolves to nothing.
@@ -55,7 +55,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
     - channel_id (integer) (required) — Collaboration channel this change event is routed to.
     - checklist (array<object>) (required) — Checklist carried by this event; a non-nil list (even empty) replaces the change's stored checklist.
       - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
-      - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+      - by (string) — Display name of the member who ticked it; omitted when the item is not ticked.
       - done (boolean) — Whether the item has been ticked off.
       - text (string) (required) — Checklist item text.
     - created_at (string) (required) — Unix timestamp in seconds when the change event was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -82,7 +82,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - labels (object) (required) — Key-value labels attached to the change; 'null' when it has none.
   - last_time (string) (required) — Unix timestamp in seconds of the most recent change activity. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - link (string) (required) — External link to the source change record.
-  - next_statuses (array<string>) — Statuses a console write may move this change to from its current status; 'Canceled', 'Done' and 'Failed' are terminal and leave this empty. Only 'POST /change/info' fills it, so it is omitted from list responses. [Planned, Ready, Processing, Canceled, Done, Failed]
+  - next_statuses (array<string>) — Statuses a console write may move this change to from its current status. 'Canceled' moves nowhere, so the field is omitted; 'Done' and 'Failed' can be reopened to 'Processing'. Only 'POST /change/info' fills it, so it is omitted from list responses. [Planned, Ready, Processing, Canceled, Done, Failed]
   - notify_target (any) (required) — Group the change's notifications go to: the first notification policy of the change form that matches the change's collaboration space. 'null' when none matches.
   - operator (string) (required) — Person performing the change, as a member email or a free-form name; empty when not filled.
   - planned_end_time (string) (required) — Unix timestamp in seconds of the planned end; '0' when no plan was given, and never earlier than 'planned_start_time'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -190,7 +190,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - channel_status (string) (required) — Status of the collaboration channel: 'enabled' or 'disabled'; an empty string when the change is not routed to an existing channel. [enabled, disabled]
     - checklist (array<object>) (required) — Execution checklist of the change; replaced as a whole by a console edit, and by a push whenever it carries one. Empty when the change has none.
       - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
-      - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+      - by (string) — Display name of the member who ticked it; omitted when the item is not ticked.
       - done (boolean) — Whether the item has been ticked off.
       - text (string) (required) — Checklist item text.
     - creator (any) (required) — Actor of the change's first event, 'null' when the change has no event or the actor resolves to nothing.
@@ -205,7 +205,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
       - channel_id (integer) (required) — Collaboration channel this change event is routed to.
       - checklist (array<object>) (required) — Checklist carried by this event; a non-nil list (even empty) replaces the change's stored checklist.
         - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
-        - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+        - by (string) — Display name of the member who ticked it; omitted when the item is not ticked.
         - done (boolean) — Whether the item has been ticked off.
         - text (string) (required) — Checklist item text.
       - created_at (string) (required) — Unix timestamp in seconds when the change event was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -232,7 +232,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - labels (object) (required) — Key-value labels attached to the change; 'null' when it has none.
     - last_time (string) (required) — Unix timestamp in seconds of the most recent change activity. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - link (string) (required) — External link to the source change record.
-    - next_statuses (array<string>) — Statuses a console write may move this change to from its current status; 'Canceled', 'Done' and 'Failed' are terminal and leave this empty. Only 'POST /change/info' fills it, so it is omitted from list responses. [Planned, Ready, Processing, Canceled, Done, Failed]
+    - next_statuses (array<string>) — Statuses a console write may move this change to from its current status. 'Canceled' moves nowhere, so the field is omitted; 'Done' and 'Failed' can be reopened to 'Processing'. Only 'POST /change/info' fills it, so it is omitted from list responses. [Planned, Ready, Processing, Canceled, Done, Failed]
     - operator (string) (required) — Person performing the change, as a member email or a free-form name; empty when not filled.
     - planned_end_time (string) (required) — Unix timestamp in seconds of the planned end; '0' when no plan was given, and never earlier than 'planned_start_time'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - planned_start_time (string) (required) — Unix timestamp in seconds of the planned start; '0' when no plan was given. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
@@ -368,7 +368,7 @@ Request fields:
   --title string (required) — Change title, non-empty. (≥1 chars)
   checklist (array<object>, via --data) — Execution checklist. 'by' and 'at' are ignored; an item with 'done: true' is recorded as ticked by the caller.
     - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
-    - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+    - by (string) — Display name of the member who ticked it; omitted when the item is not ticked.
     - done (boolean) — Whether the item has been ticked off.
     - text (string) (required) — Checklist item text.
   fields (object, via --data) — Custom field values, keyed by field name. Each key must be an enabled custom field available to changes.
@@ -477,7 +477,7 @@ Request fields:
   --title string — Change title, non-empty. (≥1 chars)
   checklist (array<object>, via --data) — Full execution checklist, replacing the stored one. 'by' and 'at' are ignored; an item already ticked under the same 'text' keeps who ticked it, and a newly ticked item is recorded as ticked by the caller. Omit to keep the current list; send an empty list to clear it.
     - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
-    - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+    - by (string) — Display name of the member who ticked it; omitted when the item is not ticked.
     - done (boolean) — Whether the item has been ticked off.
     - text (string) (required) — Checklist item text.
   fields (object, via --data) — Custom field values to set, keyed by field name; a 'null' value removes the key. Keys not sent are kept.
