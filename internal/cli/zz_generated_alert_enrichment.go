@@ -417,7 +417,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - default_value (any) (required) — Default value. Type depends on 'field_type': 'bool' for checkbox; 'string' for single_select/text; 'string[]' for multi_select; may be 'null' if no default.
   - deleted_at (string) — Deletion timestamp, Unix seconds. Only present for soft-deleted fields. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - description (string) (required) — Optional free-text description. (≤499 chars)
-  - display_name (string) (required) — Human-readable name shown in the UI. (≤39 chars)
+  - display_name (string) (required) — Human-readable name shown in the UI. (≤40 chars)
   - field_id (string) (required) — Field ID — 24-character hex ObjectID.
   - field_name (string) (required) — Machine name used in incident payloads under 'fields.<field_name>'. Immutable. (≤39 chars)
   - field_type (string) (required) — Field type. | Value | Meaning | |---|---| | 'checkbox' | Checkbox; value is a bool, options are not supported. | | 'multi_select' | Multi-select; value is a string array, each element must be one of options. | | 'single_select' | Single-select; value is a string from options. | | 'text' | Free text; value is a string. | [checkbox, multi_select, single_select, text]
@@ -425,6 +425,7 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
   - status (string) (required) — Field status: 'enabled' (active), 'disabled' (set only via internal helpers, not via the API), or 'deleted' (soft-deleted). '/field/list' excludes 'deleted'; '/field/info' may return it. [enabled, disabled, deleted]
   - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
   - updated_by (integer) (required) — Last updater member ID.
+  - usage (array<string>) (required) — Objects the field is offered on: 'incident', 'change', or both. A field created without 'usage' reads as '["incident"]'. [incident, change]
   - value_type (string) (required) — Value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. 'float' is reserved and never occurs today. [string, bool, float]
 `,
 		Args:    requireBodyFieldOrExactArg("field_id", "field-id"),
@@ -489,7 +490,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - default_value (any) (required) — Default value. Type depends on 'field_type': 'bool' for checkbox; 'string' for single_select/text; 'string[]' for multi_select; may be 'null' if no default.
     - deleted_at (string) — Deletion timestamp, Unix seconds. Only present for soft-deleted fields. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - description (string) (required) — Optional free-text description. (≤499 chars)
-    - display_name (string) (required) — Human-readable name shown in the UI. (≤39 chars)
+    - display_name (string) (required) — Human-readable name shown in the UI. (≤40 chars)
     - field_id (string) (required) — Field ID — 24-character hex ObjectID.
     - field_name (string) (required) — Machine name used in incident payloads under 'fields.<field_name>'. Immutable. (≤39 chars)
     - field_type (string) (required) — Field type. | Value | Meaning | |---|---| | 'checkbox' | Checkbox; value is a bool, options are not supported. | | 'multi_select' | Multi-select; value is a string array, each element must be one of options. | | 'single_select' | Single-select; value is a string from options. | | 'text' | Free text; value is a string. | [checkbox, multi_select, single_select, text]
@@ -497,6 +498,7 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
     - status (string) (required) — Field status: 'enabled' (active), 'disabled' (set only via internal helpers, not via the API), or 'deleted' (soft-deleted). '/field/list' excludes 'deleted'; '/field/info' may return it. [enabled, disabled, deleted]
     - updated_at (string) (required) — Last update timestamp, Unix seconds. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - updated_by (integer) (required) — Last updater member ID.
+    - usage (array<string>) (required) — Objects the field is offered on: 'incident', 'change', or both. A field created without 'usage' reads as '["incident"]'. [incident, change]
     - value_type (string) (required) — Value type. 'checkbox' is always 'bool'; 'single_select'/'multi_select'/'text' are always 'string'. 'float' is reserved and never occurs today. [string, bool, float]
 `,
 		Example: `  flashduty field list --data '{"asc":false,"orderby":"updated_at","query":"severity"}'`,
@@ -547,6 +549,7 @@ func genAlertEnrichmentFieldWriteCreateCmd() *cobra.Command {
 	var fFieldName string
 	var fFieldType string
 	var fOptions []string
+	var fUsage []string
 	var fValueType string
 	cmd := &cobra.Command{
 		Use:   "create",
@@ -559,10 +562,11 @@ API: POST /field/create (field-write-create)
 
 Request fields:
   --description string — Optional free-text description. (≤499 chars)
-  --display-name string (required) — Human-readable name. Must be unique within the account. (≤39 chars)
+  --display-name string (required) — Human-readable name. Must be unique within the account. (≤40 chars)
   --field-name string (required) — Machine name: 1–39 characters of '[a-zA-Z0-9_]', starting with a letter or underscore. Immutable after creation. (≤39 chars)
   --field-type string (required) — Field type, immutable after creation. | Value | Meaning | |---|---| | 'text' | Free text; 'value_type' must be 'string', no 'options'. | | 'single_select' | Single choice from 'options'; 'value_type' must be 'string'. | | 'multi_select' | Multiple choices from 'options'; 'value_type' must be 'string'. | | 'checkbox' | Boolean checkbox; 'value_type' must be 'bool', no 'options'. | [checkbox, multi_select, single_select, text]
   --options []string — Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.
+  --usage []string — Objects the field is offered on: 'incident', 'change', or both. Omit for incidents only. When sent, it must name at least one value, without duplicates. [incident, change]
   --value-type string (required) — Value type. 'checkbox' requires 'bool'; all other types require 'string'. Immutable after creation. 'float' is a reserved value currently rejected for every 'field_type'. [string, bool, float]
   default_value (any, via --data) — Optional default value. Type must match 'field_type': 'bool' for checkbox; one of 'options' for single_select; subset of 'options' for multi_select; string ≤3000 chars for text.
 
@@ -589,6 +593,9 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 					if cmd.Flags().Changed("options") {
 						body["options"] = fOptions
 					}
+					if cmd.Flags().Changed("usage") {
+						body["usage"] = fUsage
+					}
 					if cmd.Flags().Changed("value-type") {
 						body["value_type"] = fValueType
 					}
@@ -610,10 +617,11 @@ Response fields ('data' envelope is unwrapped — these fields are at the top le
 		},
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "Optional free-text description. (≤499 chars)")
-	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "Human-readable name. Must be unique within the account. (required) (≤39 chars)")
+	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "Human-readable name. Must be unique within the account. (required) (≤40 chars)")
 	cmd.Flags().StringVar(&fFieldName, "field-name", "", "Machine name: 1–39 characters of '[a-zA-Z0-9_]', starting with a letter or underscore. Immutable after creation. (required) (≤39 chars)")
 	cmd.Flags().StringVar(&fFieldType, "field-type", "", "Field type, immutable after creation. | Value | Meaning | |---|---| | 'text' | Free text; 'value_type' must be 'string', no 'options'. | | 'single_select' | Single choice from 'options'; 'value_type' must be 'string'. | | 'multi_select' | Multiple choices from 'options'; 'value_type' must be 'string'. | | 'checkbox' | Boolean checkbox; 'value_type' must be 'bool', no 'options'. | (required) [checkbox, multi_select, single_select, text]")
 	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Required and non-empty for 'single_select'/'multi_select' (unique strings, each 1–200 chars). Must be omitted or empty for 'checkbox'/'text'.")
+	cmd.Flags().StringSliceVar(&fUsage, "usage", nil, "Objects the field is offered on: 'incident', 'change', or both. Omit for incidents only. When sent, it must name at least one value, without duplicates. [incident, change]")
 	cmd.Flags().StringVar(&fValueType, "value-type", "", "Value type. 'checkbox' requires 'bool'; all other types require 'string'. Immutable after creation. 'float' is a reserved value currently rejected for every 'field_type'. (required) [string, bool, float]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
@@ -673,6 +681,7 @@ func genAlertEnrichmentFieldWriteUpdateCmd() *cobra.Command {
 	var fDisplayName string
 	var fFieldID string
 	var fOptions []string
+	var fUsage []string
 	cmd := &cobra.Command{
 		Use:   "update <field-id>",
 		Short: "Update field",
@@ -684,9 +693,10 @@ API: POST /field/update (field-write-update)
 
 Request fields:
   --description string — New description. Always written: omitting it clears the description.
-  --display-name string — New display name (max 39 characters); must stay unique among non-deleted fields. Always written. (≤39 chars)
+  --display-name string — New display name (max 40 characters); must stay unique among non-deleted fields. Always written. (≤40 chars)
   --field-id string (required) — Field ID — 24-character hex ObjectID.
   --options []string — Replacement options list. Must obey the same per-type rules as create. Note: the update always overwrites 'display_name', 'description', 'options', and 'default_value' with the submitted values, so for 'single_select'/'multi_select' fields a non-empty 'options' list must be sent on every update.
+  --usage []string — Objects the field is offered on: 'incident', 'change', or both. Omit to keep the current value. When sent, it must name at least one value, without duplicates. [incident, change]
   default_value (any, via --data) — New default value; its type must match the field's 'field_type'. Always written: omitting it clears the default.
 `,
 		Args:    requireBodyFieldOrExactArg("field_id", "field-id"),
@@ -709,6 +719,9 @@ Request fields:
 					if cmd.Flags().Changed("options") {
 						body["options"] = fOptions
 					}
+					if cmd.Flags().Changed("usage") {
+						body["usage"] = fUsage
+					}
 					return nil
 				})
 				if err != nil {
@@ -727,9 +740,10 @@ Request fields:
 		},
 	}
 	cmd.Flags().StringVar(&fDescription, "description", "", "New description. Always written: omitting it clears the description.")
-	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "New display name (max 39 characters); must stay unique among non-deleted fields. Always written. (≤39 chars)")
+	cmd.Flags().StringVar(&fDisplayName, "display-name", "", "New display name (max 40 characters); must stay unique among non-deleted fields. Always written. (≤40 chars)")
 	cmd.Flags().StringVar(&fFieldID, "field-id", "", "Field ID — 24-character hex ObjectID. (required)")
 	cmd.Flags().StringSliceVar(&fOptions, "options", nil, "Replacement options list. Must obey the same per-type rules as create. Note: the update always overwrites 'display_name', 'description', 'options', and 'default_value' with the submitted values, so for 'single_select'/'multi_select' fields a non-empty 'options' list must be sent on every update.")
+	cmd.Flags().StringSliceVar(&fUsage, "usage", nil, "Objects the field is offered on: 'incident', 'change', or both. Omit to keep the current value. When sent, it must name at least one value, without duplicates. [incident, change]")
 	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
 	return cmd
 }
