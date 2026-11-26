@@ -8,6 +8,125 @@ import (
 	flashduty "github.com/flashcatcloud/go-flashduty"
 )
 
+func genChangesInfoCmd() *cobra.Command {
+	var dataJSON string
+	var fChangeID string
+	var fChangeKey string
+	var fIntegrationID int64
+	cmd := &cobra.Command{
+		Use:   "info",
+		Short: "Get change detail",
+		Long: `Get change detail.
+
+Return one change with all of its events, by change ID or by integration and change key.
+
+API: POST /change/info (change-read-info)
+
+Request fields:
+  --change-id string — Change ID, a 24-character hex string.
+  --change-key string — Change key within that integration; use together with 'integration_id'.
+  --integration-id int — Integration that reported the change; use together with 'change_key'. (min 1)
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - account_id (integer) (required) — Account this change belongs to.
+  - actual_start_time (string) (required) — Unix timestamp in seconds when the change actually started: the event time of its earliest event in a started status ('Processing', 'Done', 'Failed'); '0' when it never started. 'start_time' is the first write, which for a planned change is long before execution. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - backout_plan (string) (required) — Rollback plan of the change, as Markdown; empty when not filled.
+  - can_edit (boolean) (required) — Whether the caller may edit this change: admins may edit every change, members only those of their own collaboration spaces, and a change with no collaboration space ('channel_id' 0) is read-only for members.
+  - change_id (string) (required) — Change ID, a MongoDB ObjectID hex string.
+  - change_key (string) (required) — Stable key that groups events belonging to the same change.
+  - change_status (string) (required) — Current lifecycle status of the change. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | | 'Failed' | Failed. | [Planned, Ready, Processing, Canceled, Done, Failed]
+  - channel_id (integer) (required) — Collaboration channel this change is routed to.
+  - channel_name (string) (required) — Name of the collaboration channel; an empty string when the change is not routed to an existing channel.
+  - channel_status (string) (required) — Status of the collaboration channel: 'enabled' or 'disabled'; an empty string when the change is not routed to an existing channel. [enabled, disabled]
+  - checklist (array<object>) (required) — Execution checklist of the change; replaced as a whole by a console edit, and by a push whenever it carries one. Empty when the change has none.
+    - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
+    - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+    - done (boolean) — Whether the item has been ticked off.
+    - text (string) (required) — Checklist item text.
+  - creator (any) (required) — Actor of the change's first event, 'null' when the change has no event or the actor resolves to nothing.
+  - description (string) (required) — Change description.
+  - end_time (string) (required) — Unix timestamp in seconds when the change ended. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - events (array<object>) — Every event of the change, oldest first.
+    - account_id (integer) (required) — Account this change event belongs to.
+    - actor (any) (required) — Member or integration that wrote this event; 'null' when the ID resolves to nothing.
+    - backout_plan (string) (required) — Backout plan carried by this event, as Markdown; empty when the event does not set one.
+    - change_key (string) (required) — Stable key that groups events belonging to the same change.
+    - change_status (string) (required) — Lifecycle status of the change event, reported by the change source as execution progresses. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | | 'Failed' | Failed. | [Planned, Ready, Processing, Canceled, Done, Failed]
+    - channel_id (integer) (required) — Collaboration channel this change event is routed to.
+    - checklist (array<object>) (required) — Checklist carried by this event; a non-nil list (even empty) replaces the change's stored checklist.
+      - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
+      - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+      - done (boolean) — Whether the item has been ticked off.
+      - text (string) (required) — Checklist item text.
+    - created_at (string) (required) — Unix timestamp in seconds when the change event was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - deleted_at (string) — Unix timestamp in seconds when the change event was deleted. Omitted when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - description (string) (required) — Change event description.
+    - diff (object) — Fields this event changed, mapping each field name to its before and after value; omitted when the event changed nothing.
+    - event_id (string) (required) — Change event ID, a MongoDB ObjectID hex string.
+    - event_time (string) (required) — Unix timestamp in seconds when the change event occurred. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - fields (object) (required) — Custom field values carried by this event, keyed by field name; merged into the change's stored values by key.
+    - impact (string) (required) — Impact carried by this event, as Markdown; empty when the event does not set one.
+    - integration_id (integer) (required) — Integration that reported this change event.
+    - labels (object) (required) — Key-value labels attached to the change event.
+    - link (string) (required) — External link to the source change record.
+    - operator (string) (required) — Operator carried by this event; empty when the event does not set one.
+    - planned_end_time (string) (required) — Planned end carried by this event, Unix timestamp (seconds); '0' when the event does not set one. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - planned_start_time (string) (required) — Planned start carried by this event, Unix timestamp (seconds); '0' when the event does not set one. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - title (string) (required) — Change event title.
+    - updated_at (string) (required) — Unix timestamp in seconds when the change event was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - fields (object) (required) — Values of the account's custom change fields, keyed by field name; empty when none are filled.
+  - impact (string) (required) — Impact of the change, as Markdown; empty when not filled.
+  - integration_id (integer) (required) — Integration that reported this change.
+  - integration_name (string) (required) — Name of the reporting integration.
+  - is_console (boolean) (required) — Whether the change was written through the account's built-in console integration rather than pushed by an external integration.
+  - labels (object) (required) — Key-value labels attached to the change; 'null' when it has none.
+  - last_time (string) (required) — Unix timestamp in seconds of the most recent change activity. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - link (string) (required) — External link to the source change record.
+  - next_statuses (array<string>) — Statuses a console write may move this change to from its current status; 'Canceled', 'Done' and 'Failed' are terminal and leave this empty. Only 'POST /change/info' fills it, so it is omitted from list responses. [Planned, Ready, Processing, Canceled, Done, Failed]
+  - notify_target (any) (required) — Group the change's notifications go to: the first notification policy of the change form that matches the change's collaboration space. 'null' when none matches.
+  - operator (string) (required) — Person performing the change, as a member email or a free-form name; empty when not filled.
+  - planned_end_time (string) (required) — Unix timestamp in seconds of the planned end; '0' when no plan was given, and never earlier than 'planned_start_time'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - planned_start_time (string) (required) — Unix timestamp in seconds of the planned start; '0' when no plan was given. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - start_time (string) (required) — Unix timestamp in seconds when the change started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+  - title (string) (required) — Change title.
+`,
+		Example: `  flashduty change info --data '{"change_id":"664a1b2c3d4e5f6a7b8c9d0e"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("change-id") {
+						body["change_id"] = fChangeID
+					}
+					if cmd.Flags().Changed("change-key") {
+						body["change_key"] = fChangeKey
+					}
+					if cmd.Flags().Changed("integration-id") {
+						body["integration_id"] = fIntegrationID
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.ChangeInfoRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Changes.Info(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out, body, listDefaultsFor("Changes", "Info"))
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fChangeID, "change-id", "", "Change ID, a 24-character hex string.")
+	cmd.Flags().StringVar(&fChangeKey, "change-key", "", "Change key within that integration; use together with 'integration_id'.")
+	cmd.Flags().Int64Var(&fIntegrationID, "integration-id", 0, "Integration that reported the change; use together with 'change_key'. (min 1)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func genChangesListCmd() *cobra.Command {
 	var dataJSON string
 	var fP int64
@@ -60,34 +179,63 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
   - has_next_page (boolean) (required) — Whether more pages are available after this one.
   - items (array<object>) (required) — Changes on the current page.
     - account_id (integer) (required) — Account this change belongs to.
+    - actual_start_time (string) (required) — Unix timestamp in seconds when the change actually started: the event time of its earliest event in a started status ('Processing', 'Done', 'Failed'); '0' when it never started. 'start_time' is the first write, which for a planned change is long before execution. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - backout_plan (string) (required) — Rollback plan of the change, as Markdown; empty when not filled.
+    - can_edit (boolean) (required) — Whether the caller may edit this change: admins may edit every change, members only those of their own collaboration spaces, and a change with no collaboration space ('channel_id' 0) is read-only for members.
     - change_id (string) (required) — Change ID, a MongoDB ObjectID hex string.
     - change_key (string) (required) — Stable key that groups events belonging to the same change.
     - change_status (string) (required) — Current lifecycle status of the change. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | | 'Failed' | Failed. | [Planned, Ready, Processing, Canceled, Done, Failed]
     - channel_id (integer) (required) — Collaboration channel this change is routed to.
     - channel_name (string) (required) — Name of the collaboration channel; an empty string when the change is not routed to an existing channel.
     - channel_status (string) (required) — Status of the collaboration channel: 'enabled' or 'disabled'; an empty string when the change is not routed to an existing channel. [enabled, disabled]
+    - checklist (array<object>) (required) — Execution checklist of the change; replaced as a whole by a console edit, and by a push whenever it carries one. Empty when the change has none.
+      - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
+      - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+      - done (boolean) — Whether the item has been ticked off.
+      - text (string) (required) — Checklist item text.
+    - creator (any) (required) — Actor of the change's first event, 'null' when the change has no event or the actor resolves to nothing.
     - description (string) (required) — Change description.
     - end_time (string) (required) — Unix timestamp in seconds when the change ended. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - events (array<object>) — Raw change events reported by the integration that make up this change. Present only when 'include_events' is 'true'.
       - account_id (integer) (required) — Account this change event belongs to.
+      - actor (any) (required) — Member or integration that wrote this event; 'null' when the ID resolves to nothing.
+      - backout_plan (string) (required) — Backout plan carried by this event, as Markdown; empty when the event does not set one.
       - change_key (string) (required) — Stable key that groups events belonging to the same change.
       - change_status (string) (required) — Lifecycle status of the change event, reported by the change source as execution progresses. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | | 'Failed' | Failed. | [Planned, Ready, Processing, Canceled, Done, Failed]
       - channel_id (integer) (required) — Collaboration channel this change event is routed to.
+      - checklist (array<object>) (required) — Checklist carried by this event; a non-nil list (even empty) replaces the change's stored checklist.
+        - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
+        - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+        - done (boolean) — Whether the item has been ticked off.
+        - text (string) (required) — Checklist item text.
       - created_at (string) (required) — Unix timestamp in seconds when the change event was created. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - deleted_at (string) — Unix timestamp in seconds when the change event was deleted. Omitted when not deleted. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - description (string) (required) — Change event description.
+      - diff (object) — Fields this event changed, mapping each field name to its before and after value; omitted when the event changed nothing.
       - event_id (string) (required) — Change event ID, a MongoDB ObjectID hex string.
       - event_time (string) (required) — Unix timestamp in seconds when the change event occurred. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - fields (object) (required) — Custom field values carried by this event, keyed by field name; merged into the change's stored values by key.
+      - impact (string) (required) — Impact carried by this event, as Markdown; empty when the event does not set one.
       - integration_id (integer) (required) — Integration that reported this change event.
       - labels (object) (required) — Key-value labels attached to the change event.
       - link (string) (required) — External link to the source change record.
+      - operator (string) (required) — Operator carried by this event; empty when the event does not set one.
+      - planned_end_time (string) (required) — Planned end carried by this event, Unix timestamp (seconds); '0' when the event does not set one. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+      - planned_start_time (string) (required) — Planned start carried by this event, Unix timestamp (seconds); '0' when the event does not set one. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
       - title (string) (required) — Change event title.
       - updated_at (string) (required) — Unix timestamp in seconds when the change event was last updated. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - fields (object) (required) — Values of the account's custom change fields, keyed by field name; empty when none are filled.
+    - impact (string) (required) — Impact of the change, as Markdown; empty when not filled.
     - integration_id (integer) (required) — Integration that reported this change.
     - integration_name (string) (required) — Name of the reporting integration.
+    - is_console (boolean) (required) — Whether the change was written through the account's built-in console integration rather than pushed by an external integration.
     - labels (object) (required) — Key-value labels attached to the change; 'null' when it has none.
     - last_time (string) (required) — Unix timestamp in seconds of the most recent change activity. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - link (string) (required) — External link to the source change record.
+    - next_statuses (array<string>) — Statuses a console write may move this change to from its current status; 'Canceled', 'Done' and 'Failed' are terminal and leave this empty. Only 'POST /change/info' fills it, so it is omitted from list responses. [Planned, Ready, Processing, Canceled, Done, Failed]
+    - operator (string) (required) — Person performing the change, as a member email or a free-form name; empty when not filled.
+    - planned_end_time (string) (required) — Unix timestamp in seconds of the planned end; '0' when no plan was given, and never earlier than 'planned_start_time'. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
+    - planned_start_time (string) (required) — Unix timestamp in seconds of the planned start; '0' when no plan was given. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - start_time (string) (required) — Unix timestamp in seconds when the change started. CLI '--json' renders this as an RFC3339 string in the process's local timezone (NOT UTC, and NOT the wire integer); an unset value renders as null.
     - title (string) (required) — Change title.
   - total (integer) (required) — Total number of matching changes.
@@ -186,7 +334,254 @@ Response fields ('data' envelope is unwrapped — rows are nested under items[];
 	return cmd
 }
 
+func genChangesCreateCmd() *cobra.Command {
+	var dataJSON string
+	var fBackoutPlan string
+	var fChangeStatus string
+	var fChannelID int64
+	var fDescription string
+	var fImpact string
+	var fLink string
+	var fOperator string
+	var fPlannedEndTime int64
+	var fPlannedStartTime int64
+	var fTitle string
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create change",
+		Long: `Create change.
+
+Create a change in a collaboration space. The change is recorded as written by the caller, and its change key is generated by the platform.
+
+API: POST /change/create (change-write-create)
+
+Request fields:
+  --backout-plan string — Rollback plan of the change, as Markdown.
+  --change-status string — Initial status. Defaults to 'Planned'. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | | 'Failed' | Failed. | [Planned, Ready, Processing, Canceled, Done, Failed]
+  --channel-id int (required) — Collaboration space the change belongs to. Can't be changed later. (min 1)
+  --description string — Change description.
+  --impact string — Impact of the change, as Markdown.
+  --link string — External link to the change record: an absolute 'http' or 'https' URL, or empty.
+  --operator string — Person performing the change, as a member email or a free-form name.
+  --planned-end-time int — Planned end, Unix timestamp in seconds or milliseconds; not earlier than 'planned_start_time'. (min 0)
+  --planned-start-time int — Planned start, Unix timestamp in seconds or milliseconds. (min 0)
+  --title string (required) — Change title, non-empty. (≥1 chars)
+  checklist (array<object>, via --data) — Execution checklist. 'by' and 'at' are ignored; an item with 'done: true' is recorded as ticked by the caller.
+    - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
+    - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+    - done (boolean) — Whether the item has been ticked off.
+    - text (string) (required) — Checklist item text.
+  fields (object, via --data) — Custom field values, keyed by field name. Each key must be an enabled custom field available to changes.
+  labels (object, via --data) — Key-value labels. Keys outside '[a-zA-Z_][a-zA-Z0-9_]*' are stored with spaces and punctuation replaced by '_'.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - change_id (string) (required) — ID of the new change, a 24-character hex string.
+  - change_key (string) (required) — Change key generated by the platform, 'CHG-<yyyyMMdd>-<4 characters>'.
+`,
+		Example: `  flashduty change create --data '{"backout_plan":"Roll back the deployment to v3.1.4.","change_status":"Planned","channel_id":5001,"checklist":[{"done":false,"text":"Notify the support team"},{"done":false,"text":"Verify error rate after rollout"}],"description":"Rolling upgrade of payment-service in the production cluster.","fields":{"risk_level":"medium"},"impact":"Payments may be retried for up to 30 seconds per pod.","labels":{"env":"prod","service":"payment-service"},"link":"https://ci.example.com/pipelines/4821","operator":"alice@example.com","planned_end_time":1764151200,"planned_start_time":1764147600,"title":"Upgrade payment-service to v3.2.0"}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if cmd.Flags().Changed("backout-plan") {
+						body["backout_plan"] = fBackoutPlan
+					}
+					if cmd.Flags().Changed("change-status") {
+						body["change_status"] = fChangeStatus
+					}
+					if cmd.Flags().Changed("channel-id") {
+						body["channel_id"] = fChannelID
+					}
+					if cmd.Flags().Changed("description") {
+						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("impact") {
+						body["impact"] = fImpact
+					}
+					if cmd.Flags().Changed("link") {
+						body["link"] = fLink
+					}
+					if cmd.Flags().Changed("operator") {
+						body["operator"] = fOperator
+					}
+					if cmd.Flags().Changed("planned-end-time") {
+						body["planned_end_time"] = fPlannedEndTime
+					}
+					if cmd.Flags().Changed("planned-start-time") {
+						body["planned_start_time"] = fPlannedStartTime
+					}
+					if cmd.Flags().Changed("title") {
+						body["title"] = fTitle
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				req := new(flashduty.CreateChangeRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Changes.Create(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out, body, listDefaultsFor("Changes", "Create"))
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fBackoutPlan, "backout-plan", "", "Rollback plan of the change, as Markdown.")
+	cmd.Flags().StringVar(&fChangeStatus, "change-status", "", "Initial status. Defaults to 'Planned'. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | | 'Failed' | Failed. | [Planned, Ready, Processing, Canceled, Done, Failed]")
+	cmd.Flags().Int64Var(&fChannelID, "channel-id", 0, "Collaboration space the change belongs to. Can't be changed later. (required) (min 1)")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Change description.")
+	cmd.Flags().StringVar(&fImpact, "impact", "", "Impact of the change, as Markdown.")
+	cmd.Flags().StringVar(&fLink, "link", "", "External link to the change record: an absolute 'http' or 'https' URL, or empty.")
+	cmd.Flags().StringVar(&fOperator, "operator", "", "Person performing the change, as a member email or a free-form name.")
+	cmd.Flags().Int64Var(&fPlannedEndTime, "planned-end-time", 0, "Planned end, Unix timestamp in seconds or milliseconds; not earlier than 'planned_start_time'. (min 0)")
+	cmd.Flags().Int64Var(&fPlannedStartTime, "planned-start-time", 0, "Planned start, Unix timestamp in seconds or milliseconds. (min 0)")
+	cmd.Flags().StringVar(&fTitle, "title", "", "Change title, non-empty. (required) (≥1 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
+func genChangesUpdateCmd() *cobra.Command {
+	var dataJSON string
+	var fBackoutPlan string
+	var fChangeID string
+	var fChangeStatus string
+	var fDescription string
+	var fImpact string
+	var fLink string
+	var fOperator string
+	var fPlannedEndTime int64
+	var fPlannedStartTime int64
+	var fTitle string
+	cmd := &cobra.Command{
+		Use:   "update <change-id>",
+		Short: "Update change",
+		Long: `Update change.
+
+Update a change's title, description, status, link, labels, plan, checklist or custom field values. Fields left out keep their current values.
+
+API: POST /change/update (change-write-update)
+
+Request fields:
+  --backout-plan string — Rollback plan of the change, as Markdown. Omit to keep the current value; send an empty string to clear it.
+  --change-id string (required) — ID of the change to update, a 24-character hex string.
+  --change-status string — New status; must be the current status or one it may move to (see 'next_statuses' in 'POST /change/info'). | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | | 'Failed' | Failed. | [Planned, Ready, Processing, Canceled, Done, Failed]
+  --description string — Change description. Omit to keep the current value; send an empty string to clear it.
+  --impact string — Impact of the change, as Markdown. Omit to keep the current value; send an empty string to clear it.
+  --link string — External link to the change record: an absolute 'http' or 'https' URL, or empty. Omit to keep the current value; send an empty string to clear it.
+  --operator string — Person performing the change, as a member email or a free-form name. Omit to keep the current value; send an empty string to clear it.
+  --planned-end-time int — Planned end, Unix timestamp in seconds or milliseconds; not earlier than 'planned_start_time'. Omit to keep the current value; send '0' to clear it. (min 0)
+  --planned-start-time int — Planned start, Unix timestamp in seconds or milliseconds. Omit to keep the current value; send '0' to clear it. (min 0)
+  --title string — Change title, non-empty. (≥1 chars)
+  checklist (array<object>, via --data) — Full execution checklist, replacing the stored one. 'by' and 'at' are ignored; an item already ticked under the same 'text' keeps who ticked it, and a newly ticked item is recorded as ticked by the caller. Omit to keep the current list; send an empty list to clear it.
+    - at (integer) — Unix timestamp in seconds when the item was ticked; omitted when the item is not ticked.
+    - by (string) — Member who ticked it, as an email; omitted when the item is not ticked.
+    - done (boolean) — Whether the item has been ticked off.
+    - text (string) (required) — Checklist item text.
+  fields (object, via --data) — Custom field values to set, keyed by field name; a 'null' value removes the key. Keys not sent are kept.
+  labels (object, via --data) — Labels to add or overwrite; a key with an empty value is removed. Keys not sent are kept.
+
+Response fields ('data' envelope is unwrapped — these fields are at the top level):
+  - change_id (string) (required) — Change ID.
+  - change_key (string) (required) — Change key.
+  - change_status (string) (required) — Status of the change after the update. | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | | 'Failed' | Failed. | [Planned, Ready, Processing, Canceled, Done, Failed]
+`,
+		Args:    requireBodyFieldOrExactArg("change_id", "change-id"),
+		Example: `  flashduty change update --data '{"change_id":"664a1b2c3d4e5f6a7b8c9d0e","change_status":"Processing","fields":{"risk_level":null},"labels":{"env":"","version":"v3.2.0"}}'`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCommand(cmd, args, func(ctx *RunContext) error {
+				body, err := genAssembleBody(dataJSON, func(body map[string]any) error {
+					if err := genFoldPositional(args, body, "change_id", "string"); err != nil {
+						return err
+					}
+					if cmd.Flags().Changed("backout-plan") {
+						body["backout_plan"] = fBackoutPlan
+					}
+					if cmd.Flags().Changed("change-id") {
+						body["change_id"] = fChangeID
+					}
+					if cmd.Flags().Changed("change-status") {
+						body["change_status"] = fChangeStatus
+					}
+					if cmd.Flags().Changed("description") {
+						body["description"] = fDescription
+					}
+					if cmd.Flags().Changed("impact") {
+						body["impact"] = fImpact
+					}
+					if cmd.Flags().Changed("link") {
+						body["link"] = fLink
+					}
+					if cmd.Flags().Changed("operator") {
+						body["operator"] = fOperator
+					}
+					if cmd.Flags().Changed("planned-end-time") {
+						body["planned_end_time"] = fPlannedEndTime
+					}
+					if cmd.Flags().Changed("planned-start-time") {
+						body["planned_start_time"] = fPlannedStartTime
+					}
+					if cmd.Flags().Changed("title") {
+						body["title"] = fTitle
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				if err := genRejectNullField(body, "backout_plan"); err != nil {
+					return err
+				}
+				if err := genRejectNullField(body, "description"); err != nil {
+					return err
+				}
+				if err := genRejectNullField(body, "impact"); err != nil {
+					return err
+				}
+				if err := genRejectNullField(body, "link"); err != nil {
+					return err
+				}
+				if err := genRejectNullField(body, "operator"); err != nil {
+					return err
+				}
+				if err := genRejectNullField(body, "planned_end_time"); err != nil {
+					return err
+				}
+				if err := genRejectNullField(body, "planned_start_time"); err != nil {
+					return err
+				}
+				req := new(flashduty.UpdateChangeRequest)
+				if err := genBindBody(ctx.Cmd.ErrOrStderr(), body, req); err != nil {
+					return err
+				}
+				out, _, err := ctx.Client.Changes.Update(cmdContext(ctx.Cmd), req)
+				if err != nil {
+					return err
+				}
+				return printGenericResult(ctx, out, body, listDefaultsFor("Changes", "Update"))
+			})
+		},
+	}
+	cmd.Flags().StringVar(&fBackoutPlan, "backout-plan", "", "Rollback plan of the change, as Markdown. Omit to keep the current value; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fChangeID, "change-id", "", "ID of the change to update, a 24-character hex string. (required)")
+	cmd.Flags().StringVar(&fChangeStatus, "change-status", "", "New status; must be the current status or one it may move to (see 'next_statuses' in 'POST /change/info'). | Value | Meaning | |---|---| | 'Planned' | Planned, not started. | | 'Ready' | Ready for execution. | | 'Processing' | Being executed. | | 'Canceled' | Canceled. | | 'Done' | Completed. | | 'Failed' | Failed. | [Planned, Ready, Processing, Canceled, Done, Failed]")
+	cmd.Flags().StringVar(&fDescription, "description", "", "Change description. Omit to keep the current value; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fImpact, "impact", "", "Impact of the change, as Markdown. Omit to keep the current value; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fLink, "link", "", "External link to the change record: an absolute 'http' or 'https' URL, or empty. Omit to keep the current value; send an empty string to clear it.")
+	cmd.Flags().StringVar(&fOperator, "operator", "", "Person performing the change, as a member email or a free-form name. Omit to keep the current value; send an empty string to clear it.")
+	cmd.Flags().Int64Var(&fPlannedEndTime, "planned-end-time", 0, "Planned end, Unix timestamp in seconds or milliseconds; not earlier than 'planned_start_time'. Omit to keep the current value; send '0' to clear it. (min 0)")
+	cmd.Flags().Int64Var(&fPlannedStartTime, "planned-start-time", 0, "Planned start, Unix timestamp in seconds or milliseconds. Omit to keep the current value; send '0' to clear it. (min 0)")
+	cmd.Flags().StringVar(&fTitle, "title", "", "Change title, non-empty. (≥1 chars)")
+	cmd.Flags().StringVar(&dataJSON, "data", "", "Full request body as JSON; positional arguments and typed flags override its fields. Accepts inline JSON, or - to read stdin.")
+	return cmd
+}
+
 func registerGeneratedChanges(root *cobra.Command) {
 	gChange := genGroup(root, "change", "On-call/Changes API")
+	genAddLeaf(gChange, genChangesInfoCmd())
 	genAddLeaf(gChange, genChangesListCmd())
+	genAddLeaf(gChange, genChangesCreateCmd())
+	genAddLeaf(gChange, genChangesUpdateCmd())
 }

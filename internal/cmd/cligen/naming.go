@@ -113,11 +113,15 @@ func commonPrefixLen(opTokens [][]string) int {
 	}
 }
 
-var methodPrefixByTag = map[string][]string{
+// methodPrefixByTag lists, per service, leading operationId tokens stripped
+// before the common-prefix rule; an operation drops the first prefix it has.
+var methodPrefixByTag = map[string][][]string{
 	// Removing Agent endpoints must not rename the supported query methods.
-	"Monitors/Diagnostics": {"monit", "read"},
-	"On-call/Incidents":    {"incident"},
-	"On-call/Integrations": {"webhook", "history"},
+	"Monitors/Diagnostics": {{"monit", "read"}},
+	"On-call/Incidents":    {{"incident"}},
+	"On-call/Integrations": {{"webhook", "history"}},
+	// Adding the write operations must not rename Changes.List.
+	"On-call/Changes": {{"change", "read"}, {"change", "write"}},
 }
 
 // methodNames computes a unique Go method name for each operationId within a
@@ -133,8 +137,11 @@ func methodNames(tag string, opIDs []string) map[string]string {
 	used := make(map[string]int)
 	for i, id := range opIDs {
 		toks := opTokens[i][n:]
-		if prefix, ok := methodPrefixByTag[tag]; ok && hasTokenPrefix(opTokens[i], prefix) {
-			toks = opTokens[i][len(prefix):]
+		for _, prefix := range methodPrefixByTag[tag] {
+			if hasTokenPrefix(opTokens[i], prefix) {
+				toks = opTokens[i][len(prefix):]
+				break
+			}
 		}
 		if len(toks) == 0 {
 			toks = opTokens[i]
